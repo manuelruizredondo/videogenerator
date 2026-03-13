@@ -1,0 +1,16 @@
+# ── Entorno virtual ──────────────────────────────────────────────────────────
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# ── Credenciales Google (NUNCA subir al repo) ─────────────────────────────────
+credentials/token*.json
+credentials/oauth_client.json
+
+# ── Vídeos e imágenes pesadas ─────────────────────────────────────────────────
+assets/backgrounds/
+output/
+
+# ── macOS ─────────────────────────────────────────────────────────────────────
+.DS_Store

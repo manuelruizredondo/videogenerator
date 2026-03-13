@@ -1,0 +1,54 @@
+[
+  {
+    "titulo_1": "ÁCIDO HIALURÓNICO",
+    "titulo_2": "Relleno facial natural",
+    "titulo_3": "Sin cirugía · Resultados inmediatos",
+    "descripcion": "Relleno de labios, pómulos y surcos nasogenianos. Resultados naturales e inmediatos. Sin cirugía.",
+    "precio_antes": "350 €",
+    "precio": "Desde 250 €",
+    "imagen": "assets/backgrounds/video-ecoalf-final-es.mov"
+  },
+  {
+    "titulo_1": "BOTOX",
+    "titulo_2": "Tratamiento antiedad",
+    "titulo_3": "Frente · Entrecejo · Patas de gallo",
+    "descripcion": "Tratamiento antiedad con toxina botulínica. Elimina arrugas de expresión en frente, entrecejo y patas de gallo.",
+    "precio_antes": "250 €",
+    "precio": "Desde 180 €",
+    "imagen": "assets/backgrounds/home-2.jpg"
+  },
+  {
+    "titulo_1": "ALL-ON-4",
+    "titulo_2": "Boca completa fija",
+    "titulo_3": "4 implantes · Sal con dientes ese mismo día",
+    "descripcion": "Boca completa fija con solo 4 implantes. Sal de la clínica con dientes ese mismo día. Solución permanente.",
+    "precio": "Consulta gratuita",
+    "imagen": "assets/backgrounds/img_implantologia.jpg"
+  },
+  {
+    "titulo_1": "MICROPIGMENTACIÓN",
+    "titulo_2": "Cejas perfectas",
+    "titulo_3": "Técnica pelo a pelo · Hasta 2 años",
+    "descripcion": "Cejas perfectas con técnica pelo a pelo. Resultado natural y duradero hasta 2 años. Sin mantenimiento diario.",
+    "precio_antes": "Antes desde 450 €",
+    "precio": "Desde 320 €",
+    "imagen": "assets/backgrounds/implantes-dentales.jpg"
+  },
+  {
+    "titulo_1": "HIGIENE DENTAL",
+    "titulo_2": "Tecnología Airflow",
+    "titulo_3": "Blanqueamiento visible · 1 sesión",
+    "descripcion": "Limpieza profesional con tecnología Airflow. Elimina manchas, sarro y bacterias. Dientes más blancos en 1 sesión.",
+    "precio_antes": "120 €",
+    "precio": "Desde 90 €",
+    "imagen": "assets/backgrounds/endodoncia.jpg"
+  },
+  {
+    "titulo_1": "PRIMERA VISITA",
+    "titulo_2": "Diagnóstico completo",
+    "titulo_3": "Sin compromiso · 100% gratuita",
+    "descripcion": "Diagnóstico completo sin compromiso. Te explicamos el tratamiento ideal para ti con total transparencia.",
+    "precio": "GRATIS",
+    "imagen": "assets/backgrounds/ortodoncia.jpg"
+  }
+]

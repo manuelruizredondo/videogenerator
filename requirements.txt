@@ -1,0 +1,11 @@
+# VideoGenerator — dependencias Python
+# Instalar con: pip install -r requirements.txt
+
+Pillow>=10.0.0
+numpy>=1.24.0
+
+# Google Sheets (para sync_from_sheets.py y crear_plantilla_sheets.py)
+gspread>=6.0.0
+google-auth>=2.0.0
+google-auth-oauthlib>=1.0.0
+google-auth-httplib2>=0.2.0
