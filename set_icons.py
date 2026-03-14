@@ -52,6 +52,15 @@ ICONS = [
         "line1":        "SYNC",
         "line2":        "",
     },
+    {
+        "file":         "Subir a Sheets.command",
+        "bg":           (15, 50, 90),
+        "accent":       (66, 133, 244),
+        "symbol":       "↑",
+        "symbol_scale": 0.52,
+        "line1":        "SUBIR",
+        "line2":        "",
+    },
 ]
 
 SIZE = 512   # Tamaño del icono en px

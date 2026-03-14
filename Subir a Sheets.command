@@ -1,12 +1,12 @@
 #!/bin/zsh
-# Sincronizar Sheets.command
-# Descarga la configuración desde Google Sheets y actualiza config.json + products.json
+# Subir a Sheets.command
+# Sube los productos de products.json local → Google Sheets
 
 cd "$(dirname "$0")"
 
 echo ""
 echo "══════════════════════════════════════════════════"
-echo "   VideoGenerator — Sincronizar desde Google Sheets"
+echo "   VideoGenerator — Subir productos a Google Sheets"
 echo "══════════════════════════════════════════════════"
 echo ""
 
@@ -21,14 +21,14 @@ fi
 
 source .venv/bin/activate
 
-python sync_from_sheets.py
+python sync_from_sheets.py --push
 STATUS=$?
 
 echo ""
 if [[ $STATUS -eq 0 ]]; then
-  echo "✔  Sincronización completada. Ya puedes generar el vídeo."
+  echo "✔  Productos subidos correctamente a Google Sheets."
 else
-  echo "✖  La sincronización ha fallado (código $STATUS)."
+  echo "✖  La subida ha fallado (código $STATUS)."
   echo "   Revisa el mensaje de error anterior."
 fi
 

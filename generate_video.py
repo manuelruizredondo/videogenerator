@@ -415,15 +415,24 @@ def _parse_px(value, default: int = 0) -> int:
     return int(str(value).lower().replace("px", "").strip() or default)
 
 
+def _char_advance(font: ImageFont.FreeTypeFont, ch: str) -> int:
+    """
+    Ancho visual (bounding box) de un carácter.
+    Usamos bbox en lugar del advance tipográfico para que el kerning óptico
+    sea más ajustado; preview.py compensa la diferencia al generar CSS.
+    """
+    bb = _MEASURE_DRAW.textbbox((0, 0), ch, font=font)
+    return bb[2] - bb[0]
+
+
 def _measure_line_w(line: str, font: ImageFont.FreeTypeFont, letter_spacing: int) -> int:
     """Ancho total de una línea aplicando letter_spacing entre caracteres."""
     if not line:
         return 0
     total = 0
     for ch in line:
-        bb = _MEASURE_DRAW.textbbox((0, 0), ch, font=font)
-        total += (bb[2] - bb[0]) + letter_spacing
-    return total - letter_spacing  # el último carácter no lleva spacing
+        total += _char_advance(font, ch) + letter_spacing
+    return total - letter_spacing  # el último carácter no lleva spacing extra
 
 
 def _draw_line(
@@ -437,8 +446,7 @@ def _draw_line(
     """Dibuja una línea carácter a carácter respetando letter_spacing."""
     for ch in line:
         draw.text((x, y), ch, font=font, fill=fill)
-        bb = _MEASURE_DRAW.textbbox((0, 0), ch, font=font)
-        x += (bb[2] - bb[0]) + letter_spacing
+        x += _char_advance(font, ch) + letter_spacing
 
 
 def draw_text_centered(
@@ -453,8 +461,9 @@ def draw_text_centered(
     shadow_color: tuple[int, int, int] = (0, 0, 0),
     shadow_alpha_factor: float = 0.65,
     letter_spacing: int = 0,
+    shadow: bool = True,
 ) -> None:
-    """Dibuja un bloque de texto centrado en (cx, cy) con sombra y alpha."""
+    """Dibuja un bloque de texto centrado en (cx, cy) con sombra opcional y alpha."""
     if alpha <= 0.01:
         return
 
@@ -474,8 +483,9 @@ def draw_text_centered(
         lw = _measure_line_w(line, font, letter_spacing)
         x  = cx - lw // 2
         y  = int(y_start + i * line_h * line_spacing)
-        _draw_line(draw, x + shadow_off, y + shadow_off, line, font,
-                   (*shadow_color, shadow_a), letter_spacing)
+        if shadow:
+            _draw_line(draw, x + shadow_off, y + shadow_off, line, font,
+                       (*shadow_color, shadow_a), letter_spacing)
         _draw_line(draw, x, y, line, font, (*color, int_alpha), letter_spacing)
 
     canvas.alpha_composite(layer)
@@ -498,10 +508,15 @@ def draw_prices(
     shadow_alpha_factor: float = 0.65,
     letter_spacing: int = 0,
     letter_spacing_before: int = 0,
+    price_badge: Optional[dict] = None,
+    price_before_badge: Optional[dict] = None,
+    shadow: bool = True,
+    shadow_before: bool = True,
 ) -> None:
     """
     Dibuja el precio actual y, si before_text no está vacío, el precio anterior
     tachado a su izquierda. Ambos quedan centrados juntos en (cx, cy).
+    Cada precio puede tener un badge (fondo pill) configurable.
     """
     if alpha <= 0.01:
         return
@@ -530,17 +545,42 @@ def draw_prices(
     int_a     = int(alpha * 255)
     shadow_a  = int(alpha * 255 * shadow_alpha_factor)
 
-    # ── Precio anterior (tachado) ─────────────────────────────────────────────
+    def _draw_badge(badge: dict, x: int, y: int, w: int,
+                    bb1: int, bb3: int) -> None:
+        """
+        Dibuja el badge anclado a los bounds visuales reales del glifo.
+        bb1/bb3 son los offsets superior/inferior del bbox respecto al punto
+        de dibujo y (mismo sistema que textbbox devuelve).
+        """
+        pad    = int(badge.get("padding", 30))
+        pad_x  = int(badge.get("padding_x", pad))
+        pad_y  = int(badge.get("padding_y", pad))
+        radius = int(badge.get("border_radius", 999))
+        bg     = badge.get("background", [0, 0, 0, 117])
+        br, bg_, bb_, ba = (int(v) for v in bg)
+        ba_final = int(ba * alpha)
+        draw.rounded_rectangle(
+            [x - pad_x, y + bb1 - pad_y,
+             x + w + pad_x, y + bb3 + pad_y],
+            radius=radius,
+            fill=(br, bg_, bb_, ba_final),
+        )
+
+    # ── Badge precio anterior ─────────────────────────────────────────────────
     if show_before:
-        shadow_off_b = max(3, font_before.size // 25)
         x_b = x_start
-        y_b = cy - h_b // 2
-        _draw_line(draw, x_b + shadow_off_b, y_b + shadow_off_b, before_text,
-                   font_before, (*shadow_color, shadow_a), letter_spacing_before)
+        # Centrar el texto en cy usando los bounds visuales reales
+        y_b = cy - (bb_b[1] + bb_b[3]) // 2
+        if price_before_badge:
+            _draw_badge(price_before_badge, x_b, y_b, w_b, bb_b[1], bb_b[3])
+        shadow_off_b = max(3, font_before.size // 25)
+        if shadow_before:
+            _draw_line(draw, x_b + shadow_off_b, y_b + shadow_off_b, before_text,
+                       font_before, (*shadow_color, shadow_a), letter_spacing_before)
         _draw_line(draw, x_b, y_b, before_text, font_before,
                    (*before_color, int_a), letter_spacing_before)
-        # Línea de tachado centrada verticalmente en el texto
-        strike_y     = y_b + h_b // 2
+        # Tachado centrado en el centro visual del glifo
+        strike_y     = y_b + (bb_b[1] + bb_b[3]) // 2
         strike_thick = max(5, font_before.size // 12)
         draw.rectangle(
             [x_b, strike_y - strike_thick // 2,
@@ -548,12 +588,16 @@ def draw_prices(
             fill=(*strike_color, int_a),
         )
 
-    # ── Precio actual ─────────────────────────────────────────────────────────
-    shadow_off_p = max(3, font_price.size // 25)
+    # ── Badge precio actual ───────────────────────────────────────────────────
     x_p = x_start + (w_b + gap if show_before else 0)
-    y_p = cy - h_p // 2
-    _draw_line(draw, x_p + shadow_off_p, y_p + shadow_off_p, price_text,
-               font_price, (*shadow_color, shadow_a), letter_spacing)
+    # Centrar usando los bounds visuales reales del glifo
+    y_p = cy - (bb_p[1] + bb_p[3]) // 2
+    if price_badge:
+        _draw_badge(price_badge, x_p, y_p, w_p, bb_p[1], bb_p[3])
+    shadow_off_p = max(3, font_price.size // 25)
+    if shadow:
+        _draw_line(draw, x_p + shadow_off_p, y_p + shadow_off_p, price_text,
+                   font_price, (*shadow_color, shadow_a), letter_spacing)
     _draw_line(draw, x_p, y_p, price_text, font_price,
                (*price_color, int_a), letter_spacing)
 
@@ -833,6 +877,7 @@ def render_frame(
             alpha=alpha,
             line_spacing=float(tc.get("line_height", 1.25)),
             letter_spacing=_parse_px(tc.get("letter_spacing", 0)),
+            shadow=bool(tc.get("shadow", True)),
         )
 
     # ── 5. Descripción ─────────────────────────────────────────────────────────
@@ -846,6 +891,7 @@ def render_frame(
         alpha=desc_alpha,
         line_spacing=float(d_cfg.get("line_height", 1.25)),
         letter_spacing=_parse_px(d_cfg.get("letter_spacing", 0)),
+        shadow=bool(d_cfg.get("shadow", True)),
     )
 
     # ── 6. Precio (con tachado opcional) ──────────────────────────────────────
@@ -869,6 +915,10 @@ def render_frame(
         shadow_color = (80, 50, 0),
         letter_spacing        = _parse_px(p_cfg.get("letter_spacing", 0)),
         letter_spacing_before = _parse_px(pb_cfg.get("letter_spacing", 0)),
+        price_badge           = p_cfg.get("badge") or None,
+        price_before_badge    = pb_cfg.get("badge") or None,
+        shadow                = bool(p_cfg.get("shadow", True)),
+        shadow_before         = bool(pb_cfg.get("shadow", True)),
     )
 
     # ── 7. Logos (globales: entran una vez, se mantienen y salen al final) ────

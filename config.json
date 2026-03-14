@@ -22,7 +22,7 @@
       "field": "titulo_1",
       "font": "fonts/neutrif/font-bold.ttf",
       "font_size": 130,
-      "letter_spacing": 80,
+      "letter_spacing": 30,
       "line_height": 1.25,
       "color": [
         255,
@@ -31,13 +31,14 @@
       ],
       "appear_at": 1.9,
       "fade_duration": 0.5,
-      "margin_top": 700
+      "margin_top": 700,
+      "shadow": false
     },
     {
       "field": "titulo_2",
       "font": "fonts/cinzel.ttf",
       "font_size": 220,
-      "letter_spacing": 30,
+      "letter_spacing": 10,
       "line_height": 1.25,
       "color": [
         255,
@@ -46,7 +47,8 @@
       ],
       "appear_at": 2.4,
       "fade_duration": 0.5,
-      "margin_top": 70
+      "margin_top": 70,
+      "shadow": false
     },
     {
       "field": "titulo_3",
@@ -61,7 +63,8 @@
       ],
       "appear_at": 2.9,
       "fade_duration": 0.5,
-      "margin_top": 50
+      "margin_top": 50,
+      "shadow": false
     }
   ],
   "description": {
@@ -69,6 +72,7 @@
     "font_size": 105,
     "letter_spacing": 0,
     "line_height": 1.25,
+    "shadow": false,
     "color": [
       210,
       215,
@@ -78,14 +82,21 @@
     "fade_duration": 0.5
   },
   "price": {
-    "font": "fonts/neutrif/font-bold.ttf",
-    "font_size": 280,
+    "font": "fonts/neutrif/font-regular.ttf",
+    "font_size": 220,
     "letter_spacing": 0,
     "line_height": 1.25,
+    "shadow": false,
+    "badge": {
+      "background": [0, 0, 0, 117],
+      "padding_x": 20,
+      "padding_y": 30,
+      "border_radius": 45
+    },
     "color": [
       255,
-      220,
-      50
+      255,
+      255
     ],
     "appear_at": 4.4,
     "fade_duration": 0.4
@@ -94,16 +105,17 @@
     "font": "fonts/neutrif/font-light.ttf",
     "font_size": 190,
     "letter_spacing": 0,
+    "shadow": false,
     "color": [
       170,
       170,
       170
     ],
-    "gap": 100,
+    "gap": 200,
     "strikethrough_color": [
-      220,
-      80,
-      80
+      255,
+      255,
+      255
     ]
   },
   "fade_out_duration": 1.2,
@@ -144,8 +156,10 @@
     "encoder_preset": "Velocidad/calidad del encoder H.264: ultrafast, fast, medium, slow, veryslow.",
     "encoder_crf": "Calidad de compresión H.264 (0=sin pérdida, 18=muy alta calidad, 28=calidad media).",
     "font_size": "En píxeles. A 3840px de ancho, 210px es aprox. 10cm de alto en pantalla física.",
+    "badge": "Fondo detrás del texto de precio. background: [R,G,B,A] (A: 0=transparente, 255=opaco). padding en px de canvas. border_radius: 0=sin redondeo, 45=rectángulo redondeado, 999=píldora perfecta. Disponible en 'price' y 'price_before'.",
     "line_height": "Interlineado como multiplicador del tamaño de línea. 1.0 = sin espacio extra, 1.25 = normal, 1.6 = muy espaciado. Disponible en titles[], description y price.",
     "letter_spacing": "Espacio extra en píxeles entre cada carácter. 0 = normal, >0 = más espaciado, <0 = más comprimido. Disponible en titles[], description, price y price_before.",
+    "shadow": "Activa o desactiva la sombra de texto. true = con sombra (por defecto), false = sin sombra. Disponible en titles[], description, price y price_before.",
     "appear_at": "Segundo exacto en que el elemento empieza a aparecer (fade-in).",
     "fade_duration": "Duración en segundos del fade-in.",
     "fade_out_duration": "Duración en segundos del fade-out al final del slide.",

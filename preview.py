@@ -14,6 +14,12 @@ import os
 import sys
 from pathlib import Path
 
+try:
+    from PIL import ImageFont as _PILFont, Image as _PILImage, ImageDraw as _PILDraw
+    _pil_available = True
+except ImportError:
+    _pil_available = False
+
 CANVAS_W = 3840
 CANVAS_H = 4320
 TV_SPLIT = 2160
@@ -52,6 +58,68 @@ def resolve_font_size(product: dict, field_key: str, default: int) -> int:
         except (ValueError, TypeError):
             pass
     return default
+
+
+# Caracteres representativos para calcular la corrección bbox → advance
+_SAMPLE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+_ls_corr_cache: dict    = {}
+_glyph_h_cache: dict    = {}
+
+
+def _ls_correction(font_path: str, canvas_font_size: int) -> float:
+    """
+    Diferencia media (bbox_width − advance_width) × SCALE para una fuente.
+
+    El vídeo (Pillow) avanza por bbox_width + letter_spacing, mientras que
+    el CSS avanza por advance_width + letter-spacing. Para que el HTML
+    replique el spacing visual del vídeo hay que añadir esta corrección
+    al letter-spacing CSS de cada elemento.
+    """
+    if not _pil_available:
+        return 0.0
+    key = (font_path, canvas_font_size)
+    if key in _ls_corr_cache:
+        return _ls_corr_cache[key]
+    try:
+        path = resolve_path(font_path)
+        font = _PILFont.truetype(str(path), canvas_font_size)
+        img  = _PILImage.new("RGBA", (canvas_font_size * 2, canvas_font_size * 2))
+        drw  = _PILDraw.Draw(img)
+        diffs = []
+        for ch in _SAMPLE_CHARS:
+            bb   = drw.textbbox((0, 0), ch, font=font)
+            bbox_w  = bb[2] - bb[0]
+            adv_w   = int(font.getlength(ch))
+            diffs.append(bbox_w - adv_w)
+        result = (sum(diffs) / len(diffs)) * SCALE
+    except Exception:
+        result = 0.0
+    _ls_corr_cache[key] = result
+    return result
+
+
+def _glyph_height_css(font_path: str, canvas_font_size: int) -> float:
+    """
+    Altura visual del glifo (bb[3] - bb[1]) en píxeles CSS.
+    Equivalente a la altura que el vídeo usa para dimensionar el badge.
+    """
+    if not _pil_available:
+        return canvas_font_size * SCALE
+    key = (font_path, canvas_font_size)
+    if key in _glyph_h_cache:
+        return _glyph_h_cache[key]
+    try:
+        path = resolve_path(font_path)
+        font = _PILFont.truetype(str(path), canvas_font_size)
+        img  = _PILImage.new("RGBA", (canvas_font_size * 20, canvas_font_size * 2))
+        drw  = _PILDraw.Draw(img)
+        # Muestra representativa de caracteres de precio
+        bb = drw.textbbox((0, 0), "0123456789€$ Desde", font=font)
+        result = (bb[3] - bb[1]) * SCALE
+    except Exception:
+        result = canvas_font_size * SCALE
+    _glyph_h_cache[key] = result
+    return result
 
 
 PROJECT_ROOT = Path(__file__).parent
@@ -200,9 +268,14 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
     ]
     t_fss    = [s * SCALE for s in eff_t_sizes]
     t_colors = [rgb(tc["color"]) for tc in titles_cfg]
-    t_ls     = [parse_px(tc.get("letter_spacing", 0)) / eff_t_sizes[i] for i, tc in enumerate(titles_cfg)]
-    t_weights = [font_weight_from_name(tc.get("font", "")) for tc in titles_cfg]
-    t_lhs     = [float(tc.get("line_height", 1.25)) for tc in titles_cfg]
+    t_ls     = [
+        parse_px(tc.get("letter_spacing", 0)) * SCALE
+        + _ls_correction(tc.get("font", ""), tc["font_size"])
+        for tc in titles_cfg
+    ]
+    t_weights  = [font_weight_from_name(tc.get("font", "")) for tc in titles_cfg]
+    t_lhs      = [float(tc.get("line_height", 1.25)) for tc in titles_cfg]
+    t_shadows  = [bool(tc.get("shadow", True)) for tc in titles_cfg]
 
     # Posicionar títulos secuencialmente con margin_top por título
     tv_top_start = safe_m
@@ -232,23 +305,78 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
     d_color = rgb(cfg["description"]["color"])
     p_color = rgb(cfg["price"]["color"])
 
-    d_ls     = parse_px(cfg["description"].get("letter_spacing", 0)) / eff_d_size
-    p_ls     = parse_px(cfg["price"].get("letter_spacing", 0))       / eff_p_size
+    d_ls     = (parse_px(cfg["description"].get("letter_spacing", 0)) * SCALE
+                + _ls_correction(cfg["description"].get("font", ""), eff_d_size))
+    p_ls     = (parse_px(cfg["price"].get("letter_spacing", 0)) * SCALE
+                + _ls_correction(cfg["price"].get("font", ""), eff_p_size))
     d_weight = font_weight_from_name(cfg["description"].get("font", ""))
     p_weight = font_weight_from_name(cfg["price"].get("font", ""))
     d_lh     = float(cfg["description"].get("line_height", 1.25))
     p_lh     = float(cfg["price"].get("line_height", 1.25))
+    d_shadow = bool(cfg["description"].get("shadow", True))
+    p_shadow = bool(cfg["price"].get("shadow", True))
 
     # Precio anterior (tachado)
     pb_cfg      = cfg.get("price_before")
+    pb_shadow   = bool(pb_cfg.get("shadow", True)) if pb_cfg else True
     pb_family   = font_family_name(pb_cfg.get("font", "")) if (pb_cfg and pb_cfg.get("font")) else "system-ui"
     eff_pb_size = resolve_font_size(product, "precio_antes", pb_cfg["font_size"]) if pb_cfg else 0
     pb_fs       = eff_pb_size * SCALE if pb_cfg else 0
     pb_color    = rgb(pb_cfg["color"]) if pb_cfg else "rgb(170,170,170)"
     pb_strike   = rgb(pb_cfg.get("strikethrough_color", [220, 80, 80])) if pb_cfg else "rgb(220,80,80)"
     pb_gap      = (pb_cfg.get("gap", 100) * SCALE) if pb_cfg else 0
-    pb_ls       = (parse_px(pb_cfg.get("letter_spacing", 0)) / eff_pb_size) if (pb_cfg and eff_pb_size) else 0
+    pb_ls       = (
+        parse_px(pb_cfg.get("letter_spacing", 0)) * SCALE
+        + _ls_correction(pb_cfg.get("font", ""), eff_pb_size)
+        if pb_cfg else 0
+    )
     pb_weight   = font_weight_from_name(pb_cfg.get("font", "")) if pb_cfg else 400
+
+    def _badge_css(badge: dict | None, font_path: str, canvas_font_size: int) -> str:
+        """
+        Genera CSS de badge con altura idéntica al vídeo.
+        Usa inline-flex + height explícita calculada con las métricas
+        reales del glifo (Pillow), igualando el cálculo de generate_video.py.
+        """
+        if not badge:
+            return ""
+        bg  = badge.get("background", [0, 0, 0, 117])
+        r, g, b, a = (int(v) for v in bg)
+        px  = parse_px(badge.get("padding_x", badge.get("padding", 30))) * SCALE
+        py  = parse_px(badge.get("padding_y", badge.get("padding", 30))) * SCALE
+        rad = parse_px(badge.get("border_radius", 999)) * SCALE
+        # Altura exacta = altura visual del glifo + 2×padding vertical
+        glyph_h = _glyph_height_css(font_path, canvas_font_size)
+        h = glyph_h + 2 * py
+        return (
+            f"background:rgba({r},{g},{b},{a/255:.3f});"
+            f"display:inline-flex;"
+            f"align-items:center;"
+            f"height:{h:.2f}px;"
+            f"padding:0 {px:.2f}px;"
+            f"border-radius:{rad:.2f}px;"
+            f"box-sizing:content-box;"
+        )
+
+    price_badge_css = _badge_css(
+        cfg["price"].get("badge"),
+        cfg["price"].get("font", ""),
+        eff_p_size,
+    )
+    price_before_badge_css = _badge_css(
+        pb_cfg.get("badge") if pb_cfg else None,
+        pb_cfg.get("font", "") if pb_cfg else "",
+        eff_pb_size,
+    )
+
+    _SHADOW_TXT   = "text-shadow:1px 2px 6px rgba(0,0,0,.85),0 0 20px rgba(0,0,0,.5);"
+    _SHADOW_PRICE = "text-shadow:1px 2px 10px rgba(0,0,0,.9);"
+    _NO_SHADOW    = "text-shadow:none;"
+
+    def _shadow_css(enabled: bool, strong: bool = False) -> str:
+        if not enabled:
+            return _NO_SHADOW
+        return _SHADOW_PRICE if strong else _SHADOW_TXT
     pb_text     = product.get("precio_antes", "")
 
     # Zona segura
@@ -298,7 +426,8 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
             f'font-weight:{t_weights[i]};'
             f'line-height:{t_lhs[i]};'
             f'color:{t_colors[i]};'
-            f'letter-spacing:{t_ls[i]:.4f}em;'
+            f'letter-spacing:{t_ls[i]:.2f}px;'
+            f'{_shadow_css(t_shadows[i])}'
             f'width:100%;'
             f'text-align:center;">'
             f'{product.get(titles_cfg[i].get("field","titulo_1"), "")}'
@@ -315,7 +444,8 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
             font-weight:{d_weight};
             line-height:{d_lh};
             color:{d_color};
-            letter-spacing:{d_ls:.4f}em;
+            letter-spacing:{d_ls:.2f}px;
+            {_shadow_css(d_shadow)}
             left:{safe_m * SCALE:.2f}px;
             right:{safe_m * SCALE:.2f}px;">
           {product.get("descripcion", "")}
@@ -332,7 +462,6 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
             align-items:center;
             justify-content:center;
             gap:{pb_gap:.2f}px;
-            text-shadow:1px 2px 10px rgba(0,0,0,.9);
             z-index:5;">
           {(
             "<span style='"
@@ -343,8 +472,9 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
             "text-decoration:line-through;"
             f"text-decoration-color:{pb_strike};"
             f"text-decoration-thickness:{max(2, round(pb_fs/12)):.0f}px;"
-            f"letter-spacing:{pb_ls:.4f}em;"
-            "white-space:nowrap;'>"
+            f"letter-spacing:{pb_ls:.2f}px;"
+            f"{_shadow_css(pb_shadow, strong=True)}"
+            f"white-space:nowrap;{price_before_badge_css}'>"
             f"{pb_text}</span>"
           ) if (pb_cfg and pb_text) else ""}
           <span class="price-txt" style="
@@ -353,8 +483,10 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
             font-weight:{p_weight};
             line-height:{p_lh};
             color:{p_color};
-            letter-spacing:{p_ls:.4f}em;
-            white-space:nowrap;">
+            letter-spacing:{p_ls:.2f}px;
+            {_shadow_css(p_shadow, strong=True)}
+            white-space:nowrap;
+            {price_badge_css}">
             {product.get("precio", "")}
           </span>
         </div>
@@ -508,7 +640,6 @@ HTML_TEMPLATE = """\
       text-align: center;
       transform: translateY(-50%);
       line-height: 1.25;
-      text-shadow: 1px 2px 6px rgba(0,0,0,.85), 0 0 20px rgba(0,0,0,.5);
       font-family: 'Montserrat', system-ui, sans-serif;
       word-break: break-word;
       hyphens: auto;
@@ -516,7 +647,7 @@ HTML_TEMPLATE = """\
     }}
     .title-txt  {{ font-weight: 900; }}
     .desc-txt   {{ font-weight: 400; }}
-    .price-txt  {{ font-weight: 900; text-shadow: 1px 2px 10px rgba(0,0,0,.9); }}
+    .price-txt  {{ font-weight: 900; }}
 
     /* ── Guías (visibles solo con clase .show-guides en body) ── */
     .guide {{ position: absolute; pointer-events: none; display: none; }}

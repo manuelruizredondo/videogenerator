@@ -22,7 +22,7 @@ TOKEN_PATH      = CREDS_DIR / "token.json"
 OAUTH_PATH      = CREDS_DIR / "oauth_client.json"
 
 SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets.readonly",
+    "https://www.googleapis.com/auth/spreadsheets",   # lectura + escritura
     "https://www.googleapis.com/auth/drive.readonly",
 ]
 
@@ -331,12 +331,115 @@ def sync_assets_from_drive(creds, folder_id: str, local_dir: Path) -> tuple[int,
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+#  SUBIDA DE PRODUCTOS → GOOGLE SHEETS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Mapa inverso: campo interno → cabecera legible en Sheets
+FIELD_TO_HEADER = {v: k for k, v in HEADER_MAP.items() if k not in HEADER_MAP.values()}
+# Priorizar las cabeceras "bonitas" (las que tienen caracteres especiales/acentos)
+FIELD_TO_HEADER.update({
+    "titulo_1":             "Título 1 (grande)",
+    "titulo_2":             "Título 2 (subtítulo)",
+    "titulo_3":             "Título 3 (detalle)",
+    "descripcion":          "Descripción",
+    "precio_antes":         "Precio anterior (tachado)",
+    "precio":               "Precio actual",
+    "imagen":               "Imagen / vídeo (ruta)",
+    "font_size_titulo_1":   "Tamaño título 1",
+    "font_size_titulo_2":   "Tamaño título 2",
+    "font_size_titulo_3":   "Tamaño título 3",
+    "font_size_descripcion":"Tamaño descripción",
+    "font_size_precio":     "Tamaño precio",
+    "font_size_precio_antes":"Tamaño precio anterior",
+})
+
+
+def push_products_to_sheets(sh, products: list) -> int:
+    """
+    Sube la lista de productos al Google Sheet.
+    Respeta las cabeceras existentes y añade columnas nuevas si hacen falta.
+    Devuelve el número de filas escritas.
+    """
+    ws = None
+    for sheet in sh.worksheets():
+        if "producto" in sheet.title.lower():
+            ws = sheet
+            break
+    if ws is None:
+        print("❌  Hoja 'Productos' no encontrada en el spreadsheet.")
+        return 0
+
+    # ── Leer cabeceras actuales ───────────────────────────────────────────────
+    existing_headers_raw = ws.row_values(1)
+    existing_headers     = [h.strip() for h in existing_headers_raw]
+
+    # ── Determinar qué cabeceras necesitamos (unión de campos de todos los productos) ──
+    needed_fields: list[str] = []
+    for field in PRODUCTS_FIELDS:
+        if any(field in p for p in products):
+            needed_fields.append(field)
+
+    # Construir lista final de cabeceras: primero las existentes, luego las nuevas
+    final_headers = list(existing_headers)
+    header_to_col: dict[str, int] = {}   # cabecera → índice 0-based
+
+    for h in existing_headers:
+        h_lower  = h.strip().lower()
+        field    = HEADER_MAP.get(h_lower, h_lower)
+        col_idx  = existing_headers.index(h)
+        header_to_col[field] = col_idx
+
+    for field in needed_fields:
+        if field not in header_to_col:
+            nice_header = FIELD_TO_HEADER.get(field, field)
+            final_headers.append(nice_header)
+            header_to_col[field] = len(final_headers) - 1
+
+    # ── Construir filas de datos ──────────────────────────────────────────────
+    n_cols = len(final_headers)
+    rows_to_write: list[list] = []
+
+    for product in products:
+        row = [""] * n_cols
+        for field, value in product.items():
+            if field in header_to_col:
+                row[header_to_col[field]] = str(value)
+        rows_to_write.append(row)
+
+    # ── Actualizar la hoja en batch ───────────────────────────────────────────
+    # 1. Actualizar cabeceras si hay columnas nuevas
+    if len(final_headers) > len(existing_headers):
+        ws.update([final_headers], "1:1")
+
+    # 2. Borrar filas de datos existentes (fila 2 en adelante)
+    last_data_row = ws.row_count
+    if last_data_row >= 2:
+        clear_range = f"A2:{chr(ord('A') + n_cols - 1)}{last_data_row}"
+        ws.batch_clear([clear_range])
+
+    # 3. Escribir nuevos datos
+    if rows_to_write:
+        start_cell = "A2"
+        ws.update([r for r in rows_to_write], start_cell)
+
+    return len(rows_to_write)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 #  MAIN
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def main() -> None:
+    import argparse
     _check_deps()
     import gspread
+
+    parser = argparse.ArgumentParser(description="Sincroniza datos con Google Sheets y Drive")
+    parser.add_argument(
+        "--push", action="store_true",
+        help="Sube products.json local → Google Sheets (en lugar de descargar)",
+    )
+    args = parser.parse_args()
 
     if not SHEETS_CFG_PATH.exists():
         print("❌  No se encontró sheets_settings.json")
@@ -364,6 +467,24 @@ def main() -> None:
         print(f"❌  Spreadsheet no encontrado: {spreadsheet_id}")
         print("   Asegúrate de que la cuenta autorizada tiene acceso a la hoja.")
         sys.exit(1)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    if args.push:
+        # ── MODO SUBIDA: local → Sheets ───────────────────────────────────────
+        if not PRODUCTS_PATH.exists():
+            print(f"❌  No se encontró {PRODUCTS_PATH}")
+            sys.exit(1)
+        products = json.loads(PRODUCTS_PATH.read_text(encoding="utf-8"))
+        if not products:
+            print("⚠️   products.json está vacío, no hay nada que subir.")
+            sys.exit(0)
+        print(f"⬆️   Subiendo {len(products)} productos a Google Sheets...")
+        n = push_products_to_sheets(sh, products)
+        print(f"✅  {n} productos subidos a la hoja 'Productos'")
+        return
+    # ══════════════════════════════════════════════════════════════════════════
+
+    # ── MODO DESCARGA: Sheets → local ─────────────────────────────────────────
 
     # ── Config ────────────────────────────────────────────────────────────────
     config  = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))

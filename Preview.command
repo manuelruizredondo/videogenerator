@@ -11,6 +11,6 @@ echo ""
 source .venv/bin/activate
 python preview.py
 
-echo ""
-echo "Pulsa cualquier tecla para cerrar..."
-read -n 1
+afplay /System/Library/Sounds/Glass.aiff
+sleep 1
+osascript -e 'tell application "Terminal" to close (every window whose frontmost is true)' &
