@@ -21,12 +21,39 @@ CREDS_DIR       = PROJECT_ROOT / "credentials"
 TOKEN_PATH      = CREDS_DIR / "token.json"
 OAUTH_PATH      = CREDS_DIR / "oauth_client.json"
 
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets.readonly",
+    "https://www.googleapis.com/auth/drive.readonly",
+]
+
+DRIVE_MEDIA_EXTENSIONS = {
+    ".jpg", ".jpeg", ".png", ".webp", ".gif",
+    ".mp4", ".mov", ".avi", ".mkv", ".webm",
+}
 
 PRODUCTS_FIELDS = [
     "titulo_1", "titulo_2", "titulo_3",
     "descripcion", "precio_antes", "precio", "imagen",
 ]
+
+# Mapeo de cabeceras de Google Sheets → nombres internos de campo
+HEADER_MAP = {
+    "título 1 (grande)":          "titulo_1",
+    "título 2 (subtítulo)":       "titulo_2",
+    "título 3 (detalle)":         "titulo_3",
+    "descripción":                "descripcion",
+    "precio anterior (tachado)":  "precio_antes",
+    "precio actual":              "precio",
+    "imagen / vídeo (ruta)":      "imagen",
+    # Alias directos por si se usan cabeceras cortas
+    "titulo_1": "titulo_1",
+    "titulo_2": "titulo_2",
+    "titulo_3": "titulo_3",
+    "descripcion": "descripcion",
+    "precio_antes": "precio_antes",
+    "precio": "precio",
+    "imagen": "imagen",
+}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -39,9 +66,10 @@ def _check_deps() -> None:
         from google.oauth2.credentials import Credentials  # noqa: F401
         from google.auth.transport.requests import Request  # noqa: F401
         from google_auth_oauthlib.flow import InstalledAppFlow  # noqa: F401
+        from googleapiclient.discovery import build  # noqa: F401
     except ImportError:
         print("❌  Faltan dependencias. Ejecuta:")
-        print("    pip install gspread google-auth google-auth-oauthlib google-auth-httplib2")
+        print("    pip install gspread google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client")
         sys.exit(1)
 
 
@@ -192,7 +220,9 @@ def sync_products(sh) -> list | None:
     if len(rows) < 2:
         return []
 
-    headers = [h.strip().lower() for h in rows[0]]
+    raw_headers = [h.strip().lower() for h in rows[0]]
+    # Normalizar cabeceras usando el mapa; ignorar las que no reconocemos
+    headers = [HEADER_MAP.get(h, h) for h in raw_headers]
     products = []
 
     for row in rows[1:]:
@@ -207,10 +237,81 @@ def sync_products(sh) -> list | None:
                     product[field] = val
             except ValueError:
                 pass
-        if product:
+        # Descartar filas de referencia donde el valor coincide con el nombre del campo
+        if product and not all(v == k for k, v in product.items()):
             products.append(product)
 
     return products
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  SINCRONIZACIÓN ASSETS DESDE GOOGLE DRIVE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _list_drive_files(service, folder_id: str) -> list:
+    """Lista recursivamente todos los archivos de una carpeta de Drive."""
+    results = []
+    page_token = None
+    while True:
+        resp = service.files().list(
+            q=f"'{folder_id}' in parents and trashed=false",
+            fields="nextPageToken, files(id, name, mimeType, modifiedTime, size)",
+            pageSize=200,
+            pageToken=page_token,
+        ).execute()
+        for item in resp.get("files", []):
+            if item["mimeType"] == "application/vnd.google-apps.folder":
+                results.extend(_list_drive_files(service, item["id"]))
+            else:
+                results.append(item)
+        page_token = resp.get("nextPageToken")
+        if not page_token:
+            break
+    return results
+
+
+def sync_assets_from_drive(creds, folder_id: str, local_dir: Path) -> tuple[int, int]:
+    """
+    Descarga los archivos de imagen/vídeo de una carpeta de Drive a local_dir.
+    Solo descarga si el archivo no existe o ha cambiado (por tamaño).
+    Devuelve (descargados, omitidos).
+    """
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaIoBaseDownload
+    import io
+
+    service    = build("drive", "v3", credentials=creds, cache_discovery=False)
+    local_dir.mkdir(parents=True, exist_ok=True)
+
+    files      = _list_drive_files(service, folder_id)
+    media_files = [
+        f for f in files
+        if Path(f["name"]).suffix.lower() in DRIVE_MEDIA_EXTENSIONS
+    ]
+
+    downloaded = 0
+    skipped    = 0
+
+    for file in media_files:
+        dest = local_dir / file["name"]
+        remote_size = int(file.get("size", 0))
+
+        # Omitir si ya existe con el mismo tamaño
+        if dest.exists() and dest.stat().st_size == remote_size:
+            skipped += 1
+            continue
+
+        print(f"  ⬇  {file['name']}  ({remote_size / 1024 / 1024:.1f} MB)")
+        request = service.files().get_media(fileId=file["id"])
+        buf     = io.BytesIO()
+        dl      = MediaIoBaseDownload(buf, request, chunksize=8 * 1024 * 1024)
+        done    = False
+        while not done:
+            _, done = dl.next_chunk()
+        dest.write_bytes(buf.getvalue())
+        downloaded += 1
+
+    return downloaded, skipped
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -267,6 +368,19 @@ def main() -> None:
         print(f"✅  products.json → {len(products)} productos sincronizados")
     else:
         print("ℹ️   Hoja 'Productos' no encontrada (products.json sin cambios)")
+
+    # ── Assets desde Google Drive ──────────────────────────────────────────────
+    drive_folder_id = sheets_cfg.get("drive_folder_id", "").strip()
+    if drive_folder_id:
+        local_assets = PROJECT_ROOT / sheets_cfg.get("drive_assets_local", "assets/backgrounds")
+        print(f"\n📁  Sincronizando assets desde Google Drive → {local_assets.relative_to(PROJECT_ROOT)}/")
+        try:
+            dl, sk = sync_assets_from_drive(creds, drive_folder_id, local_assets)
+            print(f"✅  Drive assets → {dl} descargados, {sk} ya actualizados")
+        except Exception as e:
+            print(f"❌  Error sincronizando Drive: {e}")
+    else:
+        print("ℹ️   drive_folder_id no configurado en sheets_settings.json (Drive omitido)")
 
 
 if __name__ == "__main__":

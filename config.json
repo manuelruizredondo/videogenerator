@@ -1,134 +1,166 @@
 {
   "_comentario": "Configuración visual del generador de vídeos para escaparate dual 4K",
-
   "fps": 25,
   "hold_duration": 6.0,
-
   "safe_margin": 150,
   "split_safe_zone": 280,
-
   "bg_zoom": 0.1,
-  "bg_appear_at":   1.1,
-  "intro_bg_color": [10, 10, 14],
-
+  "bg_appear_at": 1.1,
+  "intro_bg_color": [
+    10,
+    10,
+    14
+  ],
   "overlay_alpha": 130,
   "overlay_appear_at": 0.5,
   "overlay_fade_duration": 1.2,
   "vignette_strength": 70,
-
   "encoder_preset": "slow",
   "encoder_crf": 18,
-
   "titles": [
     {
-      "field":         "titulo_1",
-      "font":          "fonts/neutrif/font-bold.ttf",
-      "font_size":     130,
-      "color":         [255, 255, 255],
-      "appear_at":     1.9,
+      "field": "titulo_1",
+      "font": "fonts/neutrif/font-regular.ttf",
+      "font_size": 100,
+      "letter_spacing": 80,
+      "line_height": 1.25,
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "appear_at": 1.9,
       "fade_duration": 0.5,
-      "margin_top":    700
+      "margin_top": 700
     },
     {
-      "field":         "titulo_2",
-      "font":          "fonts/cinzel.ttf",
-      "font_size":     220,
-      "color":         [255, 255, 255],
-      "appear_at":     2.4,
+      "field": "titulo_2",
+      "font": "fonts/cinzel.ttf",
+      "font_size": 520,
+      "letter_spacing": 30,
+      "line_height": 1.25,
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "appear_at": 2.4,
       "fade_duration": 0.5,
-      "margin_top":    70
+      "margin_top": 70
     },
     {
-      "field":         "titulo_3",
-      "font":          "fonts/neutrif/font-regular.ttf",
-      "font_size":     100,
-      "color":         [255, 255, 255],
-      "appear_at":     2.9,
+      "field": "titulo_3",
+      "font": "fonts/neutrif/font-regular.ttf",
+      "font_size": 100,
+      "letter_spacing": 0,
+      "line_height": 1.25,
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "appear_at": 2.9,
       "fade_duration": 0.5,
-      "margin_top":    50
+      "margin_top": 50
     }
   ],
-
   "description": {
-    "font":          "fonts/neutrif/font-light.ttf",
-    "font_size":     105,
-    "color":         [210, 215, 225],
-    "appear_at":     3.2,
+    "font": "fonts/neutrif/font-light.ttf",
+    "font_size": 105,
+    "letter_spacing": 0,
+    "line_height": 1.25,
+    "color": [
+      210,
+      215,
+      225
+    ],
+    "appear_at": 3.2,
     "fade_duration": 0.5
   },
-
   "price": {
-    "font":          "fonts/neutrif/font-bold.ttf",
-    "font_size":     280,
-    "color":         [255, 220, 50],
-    "appear_at":     4.4,
+    "font": "fonts/neutrif/font-bold.ttf",
+    "font_size": 280,
+    "letter_spacing": 0,
+    "line_height": 1.25,
+    "color": [
+      255,
+      220,
+      50
+    ],
+    "appear_at": 4.4,
     "fade_duration": 0.4
   },
-
   "price_before": {
-    "font":               "fonts/neutrif/font-light.ttf",
-    "font_size":          190,
-    "color":              [170, 170, 170],
-    "gap":                100,
-    "strikethrough_color": [220, 80, 80]
+    "font": "fonts/neutrif/font-light.ttf",
+    "font_size": 190,
+    "letter_spacing": 0,
+    "color": [
+      170,
+      170,
+      170
+    ],
+    "gap": 100,
+    "strikethrough_color": [
+      220,
+      80,
+      80
+    ]
   },
-
   "fade_out_duration": 1.2,
-
   "logo": {
-    "file":           "assets/logo.png",
-    "width":          520,
-    "position":       "top-center",
-    "margin_top":     120,
-    "margin_side":    180,
-    "appear_at":      0.5,
-    "fade_duration":  0.8,
-    "enter_from":     "top",
+    "file": "assets/logo.png",
+    "width": 520,
+    "position": "top-center",
+    "margin_top": 120,
+    "margin_side": 180,
+    "appear_at": 0.5,
+    "fade_duration": 0.8,
+    "enter_from": "top",
     "slide_duration": 0.6
   },
-
   "logo_footer": {
-    "file":           "assets/logofooter.png",
-    "width":          420,
-    "position":       "bottom-center",
-    "margin_top":     100,
-    "margin_side":    180,
-    "appear_at":      0.5,
-    "fade_duration":  0.8,
-    "enter_from":     "bottom",
+    "file": "assets/logofooter.png",
+    "width": 420,
+    "position": "bottom-center",
+    "margin_top": 100,
+    "margin_side": 180,
+    "appear_at": 0.5,
+    "fade_duration": 0.8,
+    "enter_from": "bottom",
     "slide_duration": 0.6
   },
-
   "_notas": {
-    "font":            "Ruta al archivo de fuente relativa al proyecto (ej: 'fonts/neutrif/font-bold.ttf'). Para el vídeo se necesita .ttf u .otf. Para el preview también funcionan .woff y .woff2.",
-    "titles":          "Array de titulares en la TV superior. Cada objeto tiene: field (campo del producto), font, font_size, color, appear_at, fade_duration. Se distribuyen automáticamente de forma vertical.",
-    "titles[].field":      "Nombre del campo en products.json que se mostrará en esta posición (ej: 'titulo_1').",
+    "font": "Ruta al archivo de fuente relativa al proyecto (ej: 'fonts/neutrif/font-bold.ttf'). Para el vídeo se necesita .ttf u .otf. Para el preview también funcionan .woff y .woff2.",
+    "titles": "Array de titulares en la TV superior. Cada objeto tiene: field (campo del producto), font, font_size, color, appear_at, fade_duration. Se distribuyen automáticamente de forma vertical.",
+    "titles[].field": "Nombre del campo en products.json que se mostrará en esta posición (ej: 'titulo_1').",
     "titles[].margin_top": "Espacio en píxeles. En el primer título: distancia desde el borde superior de la zona segura hasta su centro. En los siguientes: hueco entre el borde inferior del título anterior y el borde superior de este.",
-    "hold_duration":   "Segundos que permanece todo visible antes del fade-out. La duración del slide se calcula automáticamente.",
-    "safe_margin":     "Margen de seguridad en píxeles respecto a los bordes del canvas.",
+    "hold_duration": "Segundos que permanece todo visible antes del fade-out. La duración del slide se calcula automáticamente.",
+    "safe_margin": "Margen de seguridad en píxeles respecto a los bordes del canvas.",
     "split_safe_zone": "Zona libre (en píxeles) por encima y por debajo de la línea de unión física de pantallas (y=2160).",
-    "bg_zoom":         "Zoom lento del fondo (efecto Ken Burns). 0.01 = crece un 1% durante todo el slide. 0 = sin zoom.",
-    "bg_appear_at":   "Segundo en que empieza a aparecer la imagen/vídeo de fondo. Retrásalo para que los logos entren primero sobre fondo oscuro.",
+    "bg_zoom": "Zoom lento del fondo (efecto Ken Burns). 0.01 = crece un 1% durante todo el slide. 0 = sin zoom.",
+    "bg_appear_at": "Segundo en que empieza a aparecer la imagen/vídeo de fondo. Retrásalo para que los logos entren primero sobre fondo oscuro.",
     "intro_bg_color": "Color RGB del fondo mientras no se ha cargado la imagen (ej: [10,10,14] = negro azulado oscuro).",
-    "overlay_alpha":   "Oscuridad del overlay sobre el fondo (0=transparente, 255=negro total).",
-    "encoder_preset":  "Velocidad/calidad del encoder H.264: ultrafast, fast, medium, slow, veryslow.",
-    "encoder_crf":     "Calidad de compresión H.264 (0=sin pérdida, 18=muy alta calidad, 28=calidad media).",
-    "font_size":       "En píxeles. A 3840px de ancho, 210px es aprox. 10cm de alto en pantalla física.",
-    "appear_at":       "Segundo exacto en que el elemento empieza a aparecer (fade-in).",
-    "fade_duration":   "Duración en segundos del fade-in.",
+    "overlay_alpha": "Oscuridad del overlay sobre el fondo (0=transparente, 255=negro total).",
+    "encoder_preset": "Velocidad/calidad del encoder H.264: ultrafast, fast, medium, slow, veryslow.",
+    "encoder_crf": "Calidad de compresión H.264 (0=sin pérdida, 18=muy alta calidad, 28=calidad media).",
+    "font_size": "En píxeles. A 3840px de ancho, 210px es aprox. 10cm de alto en pantalla física.",
+    "line_height": "Interlineado como multiplicador del tamaño de línea. 1.0 = sin espacio extra, 1.25 = normal, 1.6 = muy espaciado. Disponible en titles[], description y price.",
+    "letter_spacing": "Espacio extra en píxeles entre cada carácter. 0 = normal, >0 = más espaciado, <0 = más comprimido. Disponible en titles[], description, price y price_before.",
+    "appear_at": "Segundo exacto en que el elemento empieza a aparecer (fade-in).",
+    "fade_duration": "Duración en segundos del fade-in.",
     "fade_out_duration": "Duración en segundos del fade-out al final del slide.",
-    "price_before":      "Opcional. Estilo del precio tachado que aparece a la izquierda del precio actual. Si un producto no tiene 'precio_antes' en products.json, no se muestra.",
-    "price_before.gap":  "Espacio horizontal en píxeles entre el precio tachado y el precio actual.",
+    "price_before": "Opcional. Estilo del precio tachado que aparece a la izquierda del precio actual. Si un producto no tiene 'precio_antes' en products.json, no se muestra.",
+    "price_before.gap": "Espacio horizontal en píxeles entre el precio tachado y el precio actual.",
     "price_before.strikethrough_color": "Color RGB de la línea de tachado.",
-    "logo.file":         "Ruta al archivo de logo relativa al proyecto.",
-    "logo.width":        "Ancho del logo en píxeles (la altura se calcula automáticamente).",
-    "logo.position":     "Posición: 'top-center', 'top-left', 'top-right', 'bottom-center', 'bottom-left', 'bottom-right', o [x, y] en píxeles.",
-    "logo.margin_top":   "Margen desde el borde superior/inferior (según posición) en píxeles.",
-    "logo.margin_side":  "Margen desde el borde lateral (solo para posiciones left/right) en píxeles.",
-    "logo.appear_at":      "Segundo en que empieza el fade-in del logo.",
-    "logo.fade_duration":  "Duración del fade-in del logo en segundos.",
-    "logo.enter_from":     "Dirección de entrada animada: 'top', 'bottom', 'left', 'right'. Omitir para sin animación.",
+    "logo.file": "Ruta al archivo de logo relativa al proyecto.",
+    "logo.width": "Ancho del logo en píxeles (la altura se calcula automáticamente).",
+    "logo.position": "Posición: 'top-center', 'top-left', 'top-right', 'bottom-center', 'bottom-left', 'bottom-right', o [x, y] en píxeles.",
+    "logo.margin_top": "Margen desde el borde superior/inferior (según posición) en píxeles.",
+    "logo.margin_side": "Margen desde el borde lateral (solo para posiciones left/right) en píxeles.",
+    "logo.appear_at": "Segundo en que empieza el fade-in del logo.",
+    "logo.fade_duration": "Duración del fade-in del logo en segundos.",
+    "logo.enter_from": "Dirección de entrada animada: 'top', 'bottom', 'left', 'right'. Omitir para sin animación.",
     "logo.slide_duration": "Duración en segundos del movimiento de entrada del logo.",
-    "logo_footer":         "Igual que 'logo' pero para el logo inferior. Usa 'position': 'bottom-center' y 'enter_from': 'bottom'."
+    "logo_footer": "Igual que 'logo' pero para el logo inferior. Usa 'position': 'bottom-center' y 'enter_from': 'bottom'."
   }
 }

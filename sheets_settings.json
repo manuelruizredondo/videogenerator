@@ -1,5 +1,6 @@
 {
-  "_instrucciones": "Ejecuta 'python crear_plantilla_sheets.py' para generar el spreadsheet y rellenar este archivo automáticamente.",
-  "spreadsheet_id": "",
-  "spreadsheet_url": ""
+  "spreadsheet_id": "1WHgsK3oG08MRV79WfHqhfs-Ox_i42YDOOL_8PSUYYGA",
+  "spreadsheet_url": "https://docs.google.com/spreadsheets/d/1WHgsK3oG08MRV79WfHqhfs-Ox_i42YDOOL_8PSUYYGA",
+  "drive_folder_id": "1jqswmPxNEap0zjR3aC-O8n3kKjLufD1v",
+  "drive_assets_local": "assets/backgrounds"
 }

@@ -34,6 +34,15 @@ def rgb(color: list) -> str:
     return f"rgb({color[0]},{color[1]},{color[2]})"
 
 
+def parse_px(value, default: int = 0) -> int:
+    """Convierte '7px', '7', 7, 7.0… a int."""
+    if value is None:
+        return default
+    if isinstance(value, (int, float)):
+        return int(value)
+    return int(str(value).lower().replace("px", "").strip() or default)
+
+
 PROJECT_ROOT = Path(__file__).parent
 
 
@@ -73,6 +82,20 @@ def load_json(path: str) -> dict | list:
 def font_family_name(font_file: str) -> str:
     """Devuelve un nombre CSS válido para el @font-face a partir del nombre de archivo."""
     return Path(font_file).stem   # ej: 'Montserrat-Bold.ttf' → 'Montserrat-Bold'
+
+
+def font_weight_from_name(font_file: str) -> int:
+    """Infiere el font-weight numérico a partir del nombre del archivo."""
+    name = Path(font_file).stem.lower()
+    if any(k in name for k in ("black", "heavy", "extrabold", "extra-bold")):
+        return 900
+    if any(k in name for k in ("bold",)):
+        return 700
+    if any(k in name for k in ("semibold", "semi-bold", "medium", "demi")):
+        return 600
+    if any(k in name for k in ("light", "thin", "extralight")):
+        return 300
+    return 400
 
 
 def compute_logo_preview(cfg: dict, output_path: str, section: str = "logo") -> str:
@@ -160,8 +183,11 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
         font_family_name(tc.get("font", "")) if tc.get("font") else "system-ui"
         for tc in titles_cfg
     ]
-    t_fss   = [tc["font_size"] * SCALE for tc in titles_cfg]
+    t_fss    = [tc["font_size"] * SCALE for tc in titles_cfg]
     t_colors = [rgb(tc["color"]) for tc in titles_cfg]
+    t_ls      = [parse_px(tc.get("letter_spacing", 0)) / tc["font_size"] for tc in titles_cfg]
+    t_weights = [font_weight_from_name(tc.get("font", "")) for tc in titles_cfg]
+    t_lhs     = [float(tc.get("line_height", 1.25)) for tc in titles_cfg]
 
     # Posicionar títulos secuencialmente con margin_top por título
     tv_top_start = safe_m
@@ -189,6 +215,13 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
     d_color = rgb(cfg["description"]["color"])
     p_color = rgb(cfg["price"]["color"])
 
+    d_ls     = parse_px(cfg["description"].get("letter_spacing", 0)) / cfg["description"]["font_size"]
+    p_ls     = parse_px(cfg["price"].get("letter_spacing", 0))       / cfg["price"]["font_size"]
+    d_weight = font_weight_from_name(cfg["description"].get("font", ""))
+    p_weight = font_weight_from_name(cfg["price"].get("font", ""))
+    d_lh     = float(cfg["description"].get("line_height", 1.25))
+    p_lh     = float(cfg["price"].get("line_height", 1.25))
+
     # Precio anterior (tachado)
     pb_cfg      = cfg.get("price_before")
     pb_family   = font_family_name(pb_cfg.get("font", "")) if (pb_cfg and pb_cfg.get("font")) else "system-ui"
@@ -196,6 +229,8 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
     pb_color    = rgb(pb_cfg["color"]) if pb_cfg else "rgb(170,170,170)"
     pb_strike   = rgb(pb_cfg.get("strikethrough_color", [220, 80, 80])) if pb_cfg else "rgb(220,80,80)"
     pb_gap      = (pb_cfg.get("gap", 100) * SCALE) if pb_cfg else 0
+    pb_ls       = (parse_px(pb_cfg.get("letter_spacing", 0)) / pb_cfg["font_size"]) if pb_cfg else 0
+    pb_weight   = font_weight_from_name(pb_cfg.get("font", "")) if pb_cfg else 400
     pb_text     = product.get("precio_antes", "")
 
     # Zona segura
@@ -225,26 +260,44 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
         <!-- Logo footer -->
         {logo_footer_html}
 
-        <!-- Títulos (TV superior) -->
-        {"".join(
+        <!-- Títulos (TV superior) — flex column para que el wrap empuje hacia abajo -->
+        <div style="
+            position:absolute;
+            top:{tv_top_start * SCALE:.2f}px;
+            left:{safe_m * SCALE:.2f}px;
+            right:{safe_m * SCALE:.2f}px;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            z-index:5;">
+          {"".join(
             f'<div class="txt title-txt" style="'
-            f'top:{title_cys[i] * SCALE:.2f}px;'
+            f'position:relative;'
+            f'transform:none;'
+            f'margin-top:{(titles_cfg[i].get("margin_top", int((tv_top_end - tv_top_start) * 0.25) if i == 0 else int(titles_cfg[i-1]["font_size"] * 0.3))) * SCALE:.2f}px;'
             f'font-size:{t_fss[i]:.2f}px;'
             f"font-family:'{t_families[i]}',system-ui,sans-serif;"
+            f'font-weight:{t_weights[i]};'
+            f'line-height:{t_lhs[i]};'
             f'color:{t_colors[i]};'
-            f'left:{safe_m * SCALE:.2f}px;'
-            f'right:{safe_m * SCALE:.2f}px;">'
+            f'letter-spacing:{t_ls[i]:.4f}em;'
+            f'width:100%;'
+            f'text-align:center;">'
             f'{product.get(titles_cfg[i].get("field","titulo_1"), "")}'
             f'</div>'
             for i in range(n_titles)
-        )}
+          )}
+        </div>
 
         <!-- Descripción (TV inferior — arriba) -->
         <div class="txt desc-txt" style="
             top:{desc_cy * SCALE:.2f}px;
             font-size:{d_fs:.2f}px;
             font-family:'{d_family}',system-ui,sans-serif;
+            font-weight:{d_weight};
+            line-height:{d_lh};
             color:{d_color};
+            letter-spacing:{d_ls:.4f}em;
             left:{safe_m * SCALE:.2f}px;
             right:{safe_m * SCALE:.2f}px;">
           {product.get("descripcion", "")}
@@ -267,17 +320,22 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
             "<span style='"
             f"font-family:{pb_family},system-ui,sans-serif;"
             f"font-size:{pb_fs:.2f}px;"
+            f"font-weight:{pb_weight};"
             f"color:{pb_color};"
             "text-decoration:line-through;"
             f"text-decoration-color:{pb_strike};"
             f"text-decoration-thickness:{max(2, round(pb_fs/12)):.0f}px;"
+            f"letter-spacing:{pb_ls:.4f}em;"
             "white-space:nowrap;'>"
             f"{pb_text}</span>"
           ) if (pb_cfg and pb_text) else ""}
           <span class="price-txt" style="
             font-family:'{p_family}',system-ui,sans-serif;
             font-size:{p_fs:.2f}px;
+            font-weight:{p_weight};
+            line-height:{p_lh};
             color:{p_color};
+            letter-spacing:{p_ls:.4f}em;
             white-space:nowrap;">
             {product.get("precio", "")}
           </span>
@@ -555,8 +613,15 @@ def build_font_faces(cfg: dict, output_path: str) -> str:
     seen: set[str] = set()
     blocks: list[str] = []
 
-    for section in ("title", "description", "price"):
-        font_file = cfg.get(section, {}).get("font", "")
+    # Recopilar todas las fuentes referenciadas en el config
+    font_sources: list[str] = []
+    for tc in cfg.get("titles", []) + [cfg.get("title", {})]:
+        if tc and tc.get("font"):
+            font_sources.append(tc["font"])
+    for section in ("description", "price", "price_before"):
+        font_sources.append(cfg.get(section, {}).get("font", ""))
+
+    for font_file in font_sources:
         if not font_file or font_file in seen:
             continue
         seen.add(font_file)
@@ -574,6 +639,7 @@ def build_font_faces(cfg: dict, output_path: str) -> str:
 
         rel_path  = os.path.relpath(font_path, start=Path(output_path).parent)
         family    = font_family_name(font_file)
+        weight    = font_weight_from_name(font_file)
         suffix    = font_path.suffix.lower()
         fmt_map   = {".ttf": "truetype", ".otf": "opentype", ".woff": "woff", ".woff2": "woff2"}
         fmt       = fmt_map.get(suffix, "truetype")
@@ -582,6 +648,9 @@ def build_font_faces(cfg: dict, output_path: str) -> str:
             f"@font-face {{\n"
             f"  font-family: '{family}';\n"
             f"  src: url('{rel_path}') format('{fmt}');\n"
+            f"  font-weight: {weight};\n"
+            f"  font-style: normal;\n"
+            f"  font-synthesis: none;\n"
             f"  font-display: swap;\n"
             f"}}"
         )

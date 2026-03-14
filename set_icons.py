@@ -10,6 +10,7 @@ Uso:
 import subprocess
 import tempfile
 import os
+import warnings
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
@@ -42,6 +43,15 @@ ICONS = [
         "line1":   "PREVIEW",
         "line2":   "VÍDEO",
     },
+    {
+        "file":         "Sincronizar Sheets.command",
+        "bg":           (10, 80, 35),
+        "accent":       (52, 168, 83),
+        "symbol":       "↻",
+        "symbol_scale": 0.52,
+        "line1":        "SYNC",
+        "line2":        "",
+    },
 ]
 
 SIZE = 512   # Tamaño del icono en px
@@ -55,7 +65,7 @@ def rounded_rect(draw: ImageDraw.ImageDraw, xy, radius: int, fill):
 
 
 def best_font(size: int, bold: bool = True) -> ImageFont.FreeTypeFont:
-    """Busca una fuente disponible en el sistema."""
+    """Busca una fuente disponible en el sistema para texto."""
     candidates_bold = [
         str(PROJECT / "fonts/neutrif/font-bold.ttf"),
         "/Library/Fonts/Arial Bold.ttf",
@@ -71,6 +81,56 @@ def best_font(size: int, bold: bool = True) -> ImageFont.FreeTypeFont:
         if Path(path).exists():
             try:
                 return ImageFont.truetype(path, size)
+            except Exception:
+                continue
+    return ImageFont.load_default()
+
+
+def _font_renders_symbol(font: ImageFont.FreeTypeFont, symbol: str, size: int) -> bool:
+    """
+    Comprueba que la fuente renderiza el símbolo como un glifo único
+    (no como tofu/caja de reemplazo).
+    Renderiza el símbolo y una versión 'espejo' del mismo; si la fuente no lo
+    soporta, ambos producen el mismo patrón de caja. También compara con un
+    carácter ASCII para detectar glifos de sustitución idénticos.
+    """
+    from PIL import Image as _I, ImageDraw as _D
+    sz = max(size, 64)
+
+    def render(ch: str):
+        img = _I.new("L", (sz, sz), 0)
+        _D.Draw(img).text((0, 0), ch, font=font, fill=255)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            return bytes(img.getdata())
+
+    sym_pixels  = render(symbol)
+    # Si el símbolo produce exactamente el mismo mapa que "?" probablemente
+    # es el glifo de sustitución
+    fallback    = render("?")
+    empty       = render(" ")
+
+    has_content = sym_pixels != empty
+    not_tofu    = sym_pixels != fallback
+    return has_content and not_tofu
+
+
+def best_symbol_font(size: int, symbol: str = "↻") -> ImageFont.FreeTypeFont:
+    """Busca la primera fuente que renderice el símbolo correctamente."""
+    candidates = [
+        "/System/Library/Fonts/Apple Symbols.ttf",
+        "/Library/Fonts/Arial Unicode.ttf",
+        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+        "/System/Library/Fonts/SFNS.ttf",
+        str(PROJECT / "fonts/neutrif/font-bold.ttf"),
+        "/System/Library/Fonts/Helvetica.ttc",
+    ]
+    for path in candidates:
+        if Path(path).exists():
+            try:
+                f = ImageFont.truetype(path, size)
+                if _font_renders_symbol(f, symbol, size):
+                    return f
             except Exception:
                 continue
     return ImageFont.load_default()
@@ -109,12 +169,27 @@ def make_icon(cfg: dict) -> Image.Image:
         fill=(*accent, 80),
     )
 
-    # Símbolo grande centrado en mitad superior
-    sym_font = best_font(int(SIZE * 0.30))
+    sym_scale = cfg.get("symbol_scale", 0.30)
+    has_line2 = bool(cfg.get("line2"))
+
+    # Símbolo: centrado verticalmente si no hay línea 2, o en mitad superior si las hay
     sym      = cfg["symbol"]
+    sym_font = best_symbol_font(int(SIZE * sym_scale), symbol=sym)
     sw       = text_w(draw, sym, sym_font)
+    bbox_sym = draw.textbbox((0, 0), sym, font=sym_font)
+    sym_h    = bbox_sym[3] - bbox_sym[1]
+
+    if has_line2:
+        sym_y = int(SIZE * 0.12)
+        line1_y_frac = 0.56
+        line2_y_frac = 0.72
+    else:
+        # Símbolo en la zona superior 2/3, texto centrado debajo
+        sym_y = int(SIZE * 0.08)
+        line1_y_frac = 0.74
+
     draw.text(
-        ((SIZE - sw) // 2, int(SIZE * 0.12)),
+        ((SIZE - sw) // 2, sym_y),
         sym, font=sym_font, fill=(*accent, 255),
     )
 
@@ -123,16 +198,18 @@ def make_icon(cfg: dict) -> Image.Image:
     t1   = cfg["line1"]
     tw1  = text_w(draw, t1, f1)
     draw.text(
-        ((SIZE - tw1) // 2, int(SIZE * 0.56)),
+        ((SIZE - tw1) // 2, int(SIZE * line1_y_frac)),
         t1, font=f1, fill=(255, 255, 255, 240),
     )
 
-    # Línea 2 (subtexto en accent)
+    # Línea 2 (subtexto en accent) — solo si existe
+    if not has_line2:
+        return img
     f2   = best_font(int(SIZE * 0.115))
     t2   = cfg["line2"]
     tw2  = text_w(draw, t2, f2)
     draw.text(
-        ((SIZE - tw2) // 2, int(SIZE * 0.72)),
+        ((SIZE - tw2) // 2, int(SIZE * line2_y_frac)),
         t2, font=f2, fill=(*accent, 220),
     )
 

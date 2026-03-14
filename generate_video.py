@@ -406,6 +406,41 @@ def wrap_text(text: str, font: ImageFont.FreeTypeFont, max_w: int) -> list[str]:
     return lines or [""]
 
 
+def _parse_px(value, default: int = 0) -> int:
+    """Convierte un valor de píxeles a int. Acepta '7px', '7', 7, 7.0, etc."""
+    if value is None:
+        return default
+    if isinstance(value, (int, float)):
+        return int(value)
+    return int(str(value).lower().replace("px", "").strip() or default)
+
+
+def _measure_line_w(line: str, font: ImageFont.FreeTypeFont, letter_spacing: int) -> int:
+    """Ancho total de una línea aplicando letter_spacing entre caracteres."""
+    if not line:
+        return 0
+    total = 0
+    for ch in line:
+        bb = _MEASURE_DRAW.textbbox((0, 0), ch, font=font)
+        total += (bb[2] - bb[0]) + letter_spacing
+    return total - letter_spacing  # el último carácter no lleva spacing
+
+
+def _draw_line(
+    draw: ImageDraw.ImageDraw,
+    x: int, y: int,
+    line: str,
+    font: ImageFont.FreeTypeFont,
+    fill: tuple,
+    letter_spacing: int,
+) -> None:
+    """Dibuja una línea carácter a carácter respetando letter_spacing."""
+    for ch in line:
+        draw.text((x, y), ch, font=font, fill=fill)
+        bb = _MEASURE_DRAW.textbbox((0, 0), ch, font=font)
+        x += (bb[2] - bb[0]) + letter_spacing
+
+
 def draw_text_centered(
     canvas: Image.Image,
     lines: list[str],
@@ -417,38 +452,31 @@ def draw_text_centered(
     line_spacing: float = 1.25,
     shadow_color: tuple[int, int, int] = (0, 0, 0),
     shadow_alpha_factor: float = 0.65,
+    letter_spacing: int = 0,
 ) -> None:
     """Dibuja un bloque de texto centrado en (cx, cy) con sombra y alpha."""
     if alpha <= 0.01:
         return
 
-    # Medir altura de una línea
     bbox_sample = _MEASURE_DRAW.textbbox((0, 0), "Ágjy", font=font)
-    line_h = bbox_sample[3] - bbox_sample[1]
+    line_h  = bbox_sample[3] - bbox_sample[1]
     total_h = line_h * line_spacing * len(lines)
     y_start = cy - total_h / 2
 
-    # Capa temporal RGBA para composición con alpha
     layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     draw  = ImageDraw.Draw(layer)
 
-    int_alpha = int(alpha * 255)
-    shadow_a  = int(alpha * 255 * shadow_alpha_factor)
+    int_alpha  = int(alpha * 255)
+    shadow_a   = int(alpha * 255 * shadow_alpha_factor)
     shadow_off = max(3, font.size // 25)
 
     for i, line in enumerate(lines):
-        bbox = _MEASURE_DRAW.textbbox((0, 0), line, font=font)
-        lw = bbox[2] - bbox[0]
+        lw = _measure_line_w(line, font, letter_spacing)
         x  = cx - lw // 2
         y  = int(y_start + i * line_h * line_spacing)
-        # Sombra
-        draw.text(
-            (x + shadow_off, y + shadow_off),
-            line, font=font,
-            fill=(*shadow_color, shadow_a),
-        )
-        # Texto principal
-        draw.text((x, y), line, font=font, fill=(*color, int_alpha))
+        _draw_line(draw, x + shadow_off, y + shadow_off, line, font,
+                   (*shadow_color, shadow_a), letter_spacing)
+        _draw_line(draw, x, y, line, font, (*color, int_alpha), letter_spacing)
 
     canvas.alpha_composite(layer)
 
@@ -468,6 +496,8 @@ def draw_prices(
     gap:  int = 100,
     shadow_color: tuple[int, int, int] = (0, 0, 0),
     shadow_alpha_factor: float = 0.65,
+    letter_spacing: int = 0,
+    letter_spacing_before: int = 0,
 ) -> None:
     """
     Dibuja el precio actual y, si before_text no está vacío, el precio anterior
@@ -479,13 +509,13 @@ def draw_prices(
     show_before = bool(before_text and font_before)
 
     # ── Medir textos ──────────────────────────────────────────────────────────
+    w_p    = _measure_line_w(price_text, font_price, letter_spacing)
     bb_p   = _MEASURE_DRAW.textbbox((0, 0), price_text, font=font_price)
-    w_p    = bb_p[2] - bb_p[0]
     h_p    = bb_p[3] - bb_p[1]
 
     if show_before:
+        w_b  = _measure_line_w(before_text, font_before, letter_spacing_before)
         bb_b = _MEASURE_DRAW.textbbox((0, 0), before_text, font=font_before)
-        w_b  = bb_b[2] - bb_b[0]
         h_b  = bb_b[3] - bb_b[1]
         total_w = w_b + gap + w_p
     else:
@@ -505,12 +535,10 @@ def draw_prices(
         shadow_off_b = max(3, font_before.size // 25)
         x_b = x_start
         y_b = cy - h_b // 2
-        draw.text(
-            (x_b + shadow_off_b, y_b + shadow_off_b),
-            before_text, font=font_before, fill=(*shadow_color, shadow_a),
-        )
-        draw.text((x_b, y_b), before_text, font=font_before,
-                  fill=(*before_color, int_a))
+        _draw_line(draw, x_b + shadow_off_b, y_b + shadow_off_b, before_text,
+                   font_before, (*shadow_color, shadow_a), letter_spacing_before)
+        _draw_line(draw, x_b, y_b, before_text, font_before,
+                   (*before_color, int_a), letter_spacing_before)
         # Línea de tachado centrada verticalmente en el texto
         strike_y     = y_b + h_b // 2
         strike_thick = max(5, font_before.size // 12)
@@ -524,12 +552,10 @@ def draw_prices(
     shadow_off_p = max(3, font_price.size // 25)
     x_p = x_start + (w_b + gap if show_before else 0)
     y_p = cy - h_p // 2
-    draw.text(
-        (x_p + shadow_off_p, y_p + shadow_off_p),
-        price_text, font=font_price, fill=(*shadow_color, shadow_a),
-    )
-    draw.text((x_p, y_p), price_text, font=font_price,
-              fill=(*price_color, int_a))
+    _draw_line(draw, x_p + shadow_off_p, y_p + shadow_off_p, price_text,
+               font_price, (*shadow_color, shadow_a), letter_spacing)
+    _draw_line(draw, x_p, y_p, price_text, font_price,
+               (*price_color, int_a), letter_spacing)
 
     canvas.alpha_composite(layer)
 
@@ -733,18 +759,30 @@ def render_frame(
     tv_bottom_span   = tv_bottom_bottom - tv_bottom_top
 
     # Posicionar títulos secuencialmente con margin_top por título.
-    #   título 0: cy = tv_top_start + margin_top[0]
-    #   título i: cy = cy[i-1] + font_size[i-1]/2 + margin_top[i] + font_size[i]/2
+    # Usamos la altura real del bloque renderizado (n_líneas × line_h × spacing)
+    # para que cuando un título ocupe 2–3 líneas empuje hacia abajo al siguiente.
+    def _title_block_half_h(font, n_lines: int, line_spacing: float) -> int:
+        bbox = _MEASURE_DRAW.textbbox((0, 0), "Ágjy", font=font)
+        lh   = bbox[3] - bbox[1]
+        return int(lh * line_spacing * n_lines / 2)
+
     n_titles  = len(titles_cfg)
     title_cys: list[int] = []
     for i, tc in enumerate(titles_cfg):
-        half_h = tc["font_size"] // 2
+        font_i    = precomp["fonts_title"][i]
+        n_lines_i = len(precomp["titles_lines"][i])
+        ls_i      = float(tc.get("line_height", 1.25))
+        half_h    = _title_block_half_h(font_i, n_lines_i, ls_i)
         if i == 0:
             default_mt = int(tv_top_span * 0.25)
-            cy = tv_top_start + tc.get("margin_top", default_mt)
+            cy = tv_top_start + tc.get("margin_top", default_mt) + half_h
         else:
-            prev_half  = titles_cfg[i - 1]["font_size"] // 2
-            default_mt = int(titles_cfg[i - 1]["font_size"] * 0.3)
+            prev_tc      = titles_cfg[i - 1]
+            prev_font    = precomp["fonts_title"][i - 1]
+            prev_n_lines = len(precomp["titles_lines"][i - 1])
+            prev_ls      = float(prev_tc.get("line_height", 1.25))
+            prev_half    = _title_block_half_h(prev_font, prev_n_lines, prev_ls)
+            default_mt   = int(prev_tc["font_size"] * 0.3)
             cy = title_cys[-1] + prev_half + tc.get("margin_top", default_mt) + half_h
         title_cys.append(cy)
 
@@ -766,6 +804,8 @@ def render_frame(
             cx, cy,
             color=tuple(tc["color"]),
             alpha=alpha,
+            line_spacing=float(tc.get("line_height", 1.25)),
+            letter_spacing=_parse_px(tc.get("letter_spacing", 0)),
         )
 
     # ── 5. Descripción ─────────────────────────────────────────────────────────
@@ -777,6 +817,8 @@ def render_frame(
         cx, desc_cy,
         color=tuple(d_cfg["color"]),
         alpha=desc_alpha,
+        line_spacing=float(d_cfg.get("line_height", 1.25)),
+        letter_spacing=_parse_px(d_cfg.get("letter_spacing", 0)),
     )
 
     # ── 6. Precio (con tachado opcional) ──────────────────────────────────────
@@ -798,6 +840,8 @@ def render_frame(
         alpha  = price_alpha,
         gap    = int(pb_cfg.get("gap", 100)),
         shadow_color = (80, 50, 0),
+        letter_spacing        = _parse_px(p_cfg.get("letter_spacing", 0)),
+        letter_spacing_before = _parse_px(pb_cfg.get("letter_spacing", 0)),
     )
 
     # ── 7. Logos (globales: entran una vez, se mantienen y salen al final) ────
