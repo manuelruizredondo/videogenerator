@@ -43,6 +43,17 @@ def parse_px(value, default: int = 0) -> int:
     return int(str(value).lower().replace("px", "").strip() or default)
 
 
+def resolve_font_size(product: dict, field_key: str, default: int) -> int:
+    """Devuelve el font_size efectivo: producto > config."""
+    raw = product.get(f"font_size_{field_key}")
+    if raw:
+        try:
+            return int(str(raw).strip())
+        except (ValueError, TypeError):
+            pass
+    return default
+
+
 PROJECT_ROOT = Path(__file__).parent
 
 
@@ -179,13 +190,17 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
 
     # Títulos: extraer familias, tamaños y colores de cada entrada del array
     titles_cfg = cfg.get("titles") or [cfg.get("title", {})]
-    t_families = [
+    t_families  = [
         font_family_name(tc.get("font", "")) if tc.get("font") else "system-ui"
         for tc in titles_cfg
     ]
-    t_fss    = [tc["font_size"] * SCALE for tc in titles_cfg]
+    eff_t_sizes = [
+        resolve_font_size(product, tc.get("field", f"titulo_{i+1}"), tc["font_size"])
+        for i, tc in enumerate(titles_cfg)
+    ]
+    t_fss    = [s * SCALE for s in eff_t_sizes]
     t_colors = [rgb(tc["color"]) for tc in titles_cfg]
-    t_ls      = [parse_px(tc.get("letter_spacing", 0)) / tc["font_size"] for tc in titles_cfg]
+    t_ls     = [parse_px(tc.get("letter_spacing", 0)) / eff_t_sizes[i] for i, tc in enumerate(titles_cfg)]
     t_weights = [font_weight_from_name(tc.get("font", "")) for tc in titles_cfg]
     t_lhs     = [float(tc.get("line_height", 1.25)) for tc in titles_cfg]
 
@@ -209,14 +224,16 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
     d_family = font_family_name(cfg["description"].get("font", "")) if cfg["description"].get("font") else "system-ui"
     p_family = font_family_name(cfg["price"].get("font", ""))       if cfg["price"].get("font")       else "system-ui"
 
-    d_fs = cfg["description"]["font_size"] * SCALE
-    p_fs = cfg["price"]["font_size"]       * SCALE
+    eff_d_size = resolve_font_size(product, "descripcion", cfg["description"]["font_size"])
+    eff_p_size = resolve_font_size(product, "precio",      cfg["price"]["font_size"])
+    d_fs = eff_d_size * SCALE
+    p_fs = eff_p_size * SCALE
 
     d_color = rgb(cfg["description"]["color"])
     p_color = rgb(cfg["price"]["color"])
 
-    d_ls     = parse_px(cfg["description"].get("letter_spacing", 0)) / cfg["description"]["font_size"]
-    p_ls     = parse_px(cfg["price"].get("letter_spacing", 0))       / cfg["price"]["font_size"]
+    d_ls     = parse_px(cfg["description"].get("letter_spacing", 0)) / eff_d_size
+    p_ls     = parse_px(cfg["price"].get("letter_spacing", 0))       / eff_p_size
     d_weight = font_weight_from_name(cfg["description"].get("font", ""))
     p_weight = font_weight_from_name(cfg["price"].get("font", ""))
     d_lh     = float(cfg["description"].get("line_height", 1.25))
@@ -225,11 +242,12 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
     # Precio anterior (tachado)
     pb_cfg      = cfg.get("price_before")
     pb_family   = font_family_name(pb_cfg.get("font", "")) if (pb_cfg and pb_cfg.get("font")) else "system-ui"
-    pb_fs       = pb_cfg["font_size"] * SCALE if pb_cfg else 0
+    eff_pb_size = resolve_font_size(product, "precio_antes", pb_cfg["font_size"]) if pb_cfg else 0
+    pb_fs       = eff_pb_size * SCALE if pb_cfg else 0
     pb_color    = rgb(pb_cfg["color"]) if pb_cfg else "rgb(170,170,170)"
     pb_strike   = rgb(pb_cfg.get("strikethrough_color", [220, 80, 80])) if pb_cfg else "rgb(220,80,80)"
     pb_gap      = (pb_cfg.get("gap", 100) * SCALE) if pb_cfg else 0
-    pb_ls       = (parse_px(pb_cfg.get("letter_spacing", 0)) / pb_cfg["font_size"]) if pb_cfg else 0
+    pb_ls       = (parse_px(pb_cfg.get("letter_spacing", 0)) / eff_pb_size) if (pb_cfg and eff_pb_size) else 0
     pb_weight   = font_weight_from_name(pb_cfg.get("font", "")) if pb_cfg else 400
     pb_text     = product.get("precio_antes", "")
 

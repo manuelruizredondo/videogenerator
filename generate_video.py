@@ -634,9 +634,26 @@ def make_vignette(strength: int = 80) -> np.ndarray:
 #  PRE-CÓMPUTO POR SLIDE (fuentes + líneas de texto)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+def _resolve_font_size(product: dict, field_key: str, default: int) -> int:
+    """
+    Devuelve el font_size efectivo: usa el valor del producto si existe,
+    si no el valor por defecto del config.
+    El campo en el producto se llama  font_size_<field_key>
+    (ej: font_size_titulo_1, font_size_descripcion, font_size_precio).
+    """
+    raw = product.get(f"font_size_{field_key}")
+    if raw:
+        try:
+            return int(str(raw).strip())
+        except (ValueError, TypeError):
+            pass
+    return default
+
+
 def precompute_slide(product: dict, cfg: dict) -> dict:
     """
     Calcula una sola vez (por slide) las fuentes y el texto partido en líneas.
+    El font_size de cada elemento puede ser sobreescrito por el producto.
     """
     safe_m = cfg["safe_margin"]
     text_w = CANVAS_W - 2 * safe_m
@@ -644,21 +661,30 @@ def precompute_slide(product: dict, cfg: dict) -> dict:
     titles_cfg = cfg.get("titles") or [cfg.get("title", {})]
     d_cfg      = cfg["description"]
     p_cfg      = cfg["price"]
+    pb_cfg     = cfg.get("price_before")
+
+    # Tamaños efectivos (config por defecto, sobreescrito por el producto)
+    eff_title_sizes = [
+        _resolve_font_size(product, tc.get("field", f"titulo_{i+1}"), tc["font_size"])
+        for i, tc in enumerate(titles_cfg)
+    ]
+    eff_desc_size   = _resolve_font_size(product, "descripcion", d_cfg["font_size"])
+    eff_price_size  = _resolve_font_size(product, "precio",      p_cfg["font_size"])
+    eff_pb_size     = _resolve_font_size(product, "precio_antes", pb_cfg["font_size"]) if pb_cfg else 0
 
     fonts_title  = [
-        get_font(tc["font_size"], bold=True, font_name=tc.get("font"))
-        for tc in titles_cfg
+        get_font(eff_title_sizes[i], bold=True, font_name=tc.get("font"))
+        for i, tc in enumerate(titles_cfg)
     ]
     titles_lines = [
         wrap_text(str(product.get(tc.get("field", "titulo_1"), "")), f, text_w)
         for tc, f in zip(titles_cfg, fonts_title)
     ]
 
-    pb_cfg     = cfg.get("price_before")
-    font_desc  = get_font(d_cfg["font_size"], bold=False, font_name=d_cfg.get("font"))
-    font_price = get_font(p_cfg["font_size"], bold=True,  font_name=p_cfg.get("font"))
+    font_desc  = get_font(eff_desc_size,  bold=False, font_name=d_cfg.get("font"))
+    font_price = get_font(eff_price_size, bold=True,  font_name=p_cfg.get("font"))
     font_price_before = (
-        get_font(pb_cfg["font_size"], bold=False, font_name=pb_cfg.get("font"))
+        get_font(eff_pb_size, bold=False, font_name=pb_cfg.get("font"))
         if pb_cfg else None
     )
 
@@ -671,6 +697,7 @@ def precompute_slide(product: dict, cfg: dict) -> dict:
         "desc_lines":         wrap_text(str(product.get("descripcion", "")), font_desc, text_w),
         "price_lines":        [str(product.get("precio", ""))],
         "price_before_text":  str(product.get("precio_antes", "")),
+        "eff_title_sizes":    eff_title_sizes,
     }
 
 
@@ -782,7 +809,7 @@ def render_frame(
             prev_n_lines = len(precomp["titles_lines"][i - 1])
             prev_ls      = float(prev_tc.get("line_height", 1.25))
             prev_half    = _title_block_half_h(prev_font, prev_n_lines, prev_ls)
-            default_mt   = int(prev_tc["font_size"] * 0.3)
+            default_mt   = int(precomp["eff_title_sizes"][i - 1] * 0.3)
             cy = title_cys[-1] + prev_half + tc.get("margin_top", default_mt) + half_h
         title_cys.append(cy)
 

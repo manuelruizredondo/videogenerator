@@ -34,6 +34,9 @@ DRIVE_MEDIA_EXTENSIONS = {
 PRODUCTS_FIELDS = [
     "titulo_1", "titulo_2", "titulo_3",
     "descripcion", "precio_antes", "precio", "imagen",
+    # Tamaños de fuente opcionales por producto (sobreescriben config.json)
+    "font_size_titulo_1", "font_size_titulo_2", "font_size_titulo_3",
+    "font_size_descripcion", "font_size_precio", "font_size_precio_antes",
 ]
 
 # Mapeo de cabeceras de Google Sheets → nombres internos de campo
@@ -45,6 +48,13 @@ HEADER_MAP = {
     "precio anterior (tachado)":  "precio_antes",
     "precio actual":              "precio",
     "imagen / vídeo (ruta)":      "imagen",
+    # Tamaños de fuente (columnas opcionales en Sheets)
+    "tamaño título 1":            "font_size_titulo_1",
+    "tamaño título 2":            "font_size_titulo_2",
+    "tamaño título 3":            "font_size_titulo_3",
+    "tamaño descripción":         "font_size_descripcion",
+    "tamaño precio":              "font_size_precio",
+    "tamaño precio anterior":     "font_size_precio_antes",
     # Alias directos por si se usan cabeceras cortas
     "titulo_1": "titulo_1",
     "titulo_2": "titulo_2",
@@ -53,6 +63,12 @@ HEADER_MAP = {
     "precio_antes": "precio_antes",
     "precio": "precio",
     "imagen": "imagen",
+    "font_size_titulo_1": "font_size_titulo_1",
+    "font_size_titulo_2": "font_size_titulo_2",
+    "font_size_titulo_3": "font_size_titulo_3",
+    "font_size_descripcion": "font_size_descripcion",
+    "font_size_precio": "font_size_precio",
+    "font_size_precio_antes": "font_size_precio_antes",
 }
 
 
