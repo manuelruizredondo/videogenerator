@@ -460,7 +460,7 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
             f'{_shadow_css(t_shadows[i])}'
             f'width:100%;'
             f'text-align:center;">'
-            f'{product.get(titles_cfg[i].get("field","titulo_1")) or ""}'
+            f'{(product.get(titles_cfg[i].get("field","titulo_1")) or "").replace(chr(10), "<br>")}'
             f'</div>'
             for i in range(n_titles)
           )}
@@ -478,7 +478,7 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
             {_shadow_css(d_shadow)}
             left:{safe_m * SCALE:.2f}px;
             right:{safe_m * SCALE:.2f}px;">
-          {product.get("descripcion") or ""}
+          {(product.get("descripcion") or "").replace(chr(10), "<br>")}
         </div>
 
         <!-- Precio (TV inferior — abajo) -->
@@ -505,7 +505,7 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
             f"letter-spacing:{pb_ls:.2f}px;"
             f"{_shadow_css(pb_shadow, strong=True)}"
             f"white-space:nowrap;{price_before_badge_css}'>"
-            f"{pb_text}</span>"
+            f"{pb_text.replace(chr(10), '<br>')}</span>"
           ) if (pb_cfg and pb_text) else ""}
           <span class="price-txt" style="
             font-family:'{p_family}',system-ui,sans-serif;
@@ -517,7 +517,7 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
             {_shadow_css(p_shadow, strong=True)}
             white-space:nowrap;
             {price_badge_css}">
-            {product.get("precio") or ""}
+            {(product.get("precio") or "").replace(chr(10), "<br>")}
           </span>
         </div>
 

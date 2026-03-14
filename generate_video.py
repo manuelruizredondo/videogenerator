@@ -395,20 +395,24 @@ _MEASURE_DRAW = ImageDraw.Draw(_MEASURE_IMG)
 
 
 def wrap_text(text: str, font: ImageFont.FreeTypeFont, max_w: int) -> list[str]:
-    """Divide el texto en líneas que caben dentro de max_w píxeles."""
-    words, lines, current = text.split(), [], []
-    for word in words:
-        candidate = " ".join(current + [word])
-        bbox = _MEASURE_DRAW.textbbox((0, 0), candidate, font=font)
-        if bbox[2] - bbox[0] <= max_w:
-            current.append(word)
-        else:
-            if current:
-                lines.append(" ".join(current))
-            current = [word]
-    if current:
-        lines.append(" ".join(current))
-    return lines or [""]
+    """
+    Divide el texto en líneas que caben dentro de max_w píxeles.
+    Respeta saltos de línea explícitos con \\n en el texto.
+    """
+    result = []
+    for paragraph in text.split("\n"):
+        words, current = paragraph.split(), []
+        for word in words:
+            candidate = " ".join(current + [word])
+            bbox = _MEASURE_DRAW.textbbox((0, 0), candidate, font=font)
+            if bbox[2] - bbox[0] <= max_w:
+                current.append(word)
+            else:
+                if current:
+                    result.append(" ".join(current))
+                current = [word]
+        result.append(" ".join(current) if current else "")
+    return result or [""]
 
 
 def _parse_px(value, default: int = 0) -> int:

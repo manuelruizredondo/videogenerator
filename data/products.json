@@ -1,29 +1,23 @@
 [
   {
-    "titulo_1": "TITULO 1",
-    "titulo_2": "TITULO 2",
-    "titulo_3": "TITULO 3",
-    "descripcion": "Descripción",
-    "precio_antes": "Precio anterior",
-    "precio": "Precio actual",
-    "imagen": "assets/backgrounds/video-ecoalf-final-es.mov"
+    "producto": "Bienvenida",
+    "titulo_1": "BIENVENIDO",
+    "titulo_2": "Centre Mèdic Basté",
+    "titulo_3": "Medicina Estética · Odontología · Micropigmentación",
+    "descripcion": "Especialistas en tratamientos estéticos y dentales.\nTe cuidamos con los mejores profesionales.",
+    "precio": "Entra y pregunta",
+    "imagen": "assets/backgrounds/video.mp4"
   },
+
+
   {
-    "titulo_1": "BOTOX",
-    "titulo_2": "Tratamiento antiedad",
-    "titulo_3": "Frente · Entrecejo · Patas de gallo",
-    "descripcion": "Tratamiento antiedad con toxina botulínica. Elimina arrugas de expresión en frente, entrecejo y patas de gallo.",
-    "precio_antes": "250 €",
-    "precio": "Desde 180 €",
-    "imagen": "assets/backgrounds/home-2.jpg"
-  },
-  {
-    "titulo_1": "ALL-ON-4",
-    "titulo_2": "Boca completa fija",
-    "titulo_3": "4 implantes · Sal con dientes ese mismo día",
-    "descripcion": "Boca completa fija con solo 4 implantes. Sal de la clínica con dientes ese mismo día. Solución permanente.",
-    "precio": "Consulta gratuita",
-    "imagen": "assets/backgrounds/img_implantologia.jpg"
+    "producto": "Aniversario 3 años",
+    "titulo_1": "¡ESTAMOS DE ANIVERSARIO!\n 3 AÑOS CONTIGO",
+    "titulo_2": "24 DE ABRIL\n PUERTAS ABIERTAS",
+    "titulo_3": "Medicina Estética y Micropigmentación",
+    "descripcion": "10% DESCUENTO SOLO ESE DÍA.\n ¡Pide tu cita ahora!",
+    "precio": "Cóctel de 15h a 20h",
+    "imagen": "assets/backgrounds/party.mp4"
   },
   {
     "titulo_1": "MICROPIGMENTACIÓN",
@@ -32,8 +26,19 @@
     "descripcion": "Cejas perfectas con técnica pelo a pelo. Resultado natural y duradero hasta 2 años. Sin mantenimiento diario.",
     "precio_antes": "Antes desde 450 €",
     "precio": "Desde 320 €",
-    "imagen": "assets/backgrounds/implantes-dentales.jpg"
+    "imagen": "assets/backgrounds/cejas.mp4"
   },
+
+
+  {
+    "titulo_1": "ALL-ON-4",
+    "titulo_2": "Boca completa fija",
+    "titulo_3": "4 implantes · Sal con dientes ese mismo día",
+    "descripcion": "Boca completa fija con solo 4 implantes. Sal de la clínica con dientes ese mismo día. Solución permanente.",
+    "precio": "Consulta gratuita",
+    "imagen": "assets/backgrounds/img_implantologia.jpg"
+  },
+
   {
     "titulo_1": "HIGIENE DENTAL",
     "titulo_2": "Tecnología Airflow",
@@ -41,7 +46,7 @@
     "descripcion": "Limpieza profesional con tecnología Airflow. Elimina manchas, sarro y bacterias. Dientes más blancos en 1 sesión.",
     "precio_antes": "120 €",
     "precio": "Desde 90 €",
-    "imagen": "assets/backgrounds/endodoncia.jpg"
+    "imagen": "assets/backgrounds/airflow.mp4"
   },
   {
     "titulo_1": "PRIMERA VISITA",

@@ -74,9 +74,9 @@
     "line_height": 1.25,
     "shadow": false,
     "color": [
-      210,
-      215,
-      225
+      255,
+      255,
+      255
     ],
     "appear_at": 3.2,
     "fade_duration": 0.5
