@@ -487,8 +487,11 @@ def main() -> None:
     # ── MODO DESCARGA: Sheets → local ─────────────────────────────────────────
 
     # ── Config ────────────────────────────────────────────────────────────────
-    config  = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-    n_cfg   = sync_config(sh, config)
+    config_raw = CONFIG_PATH.read_text(encoding="utf-8")
+    config     = json.loads(config_raw)
+    n_cfg      = sync_config(sh, config)
+    # Backup antes de sobrescribir por si la sincronización corrompió algo
+    CONFIG_PATH.with_suffix(".json.bak").write_text(config_raw, encoding="utf-8")
     CONFIG_PATH.write_text(
         json.dumps(config, ensure_ascii=False, indent=2),
         encoding="utf-8",

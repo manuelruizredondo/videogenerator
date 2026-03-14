@@ -160,12 +160,17 @@ class VideoBackground:
                 "pipe:1",
             ],
             stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
         )
 
     def get_next_frame(self) -> np.ndarray:
         data = self._proc.stdout.read(self._frame_bytes)
         if len(data) < self._frame_bytes:
+            # Leer stderr para dar un mensaje útil si el vídeo no pudo leerse
+            err = self._proc.stderr.read().decode("utf-8", errors="replace").strip()
+            if err:
+                last = "\n".join(err.splitlines()[-5:])
+                print(f"\n  ⚠️  Advertencia leyendo vídeo de fondo: {last}", file=sys.stderr)
             return np.zeros((CANVAS_H, CANVAS_W, 3), dtype=np.uint8)
         return np.frombuffer(data, dtype=np.uint8).reshape(CANVAS_H, CANVAS_W, 3).copy()
 
@@ -721,7 +726,7 @@ def precompute_slide(product: dict, cfg: dict) -> dict:
         for i, tc in enumerate(titles_cfg)
     ]
     titles_lines = [
-        wrap_text(str(product.get(tc.get("field", "titulo_1"), "")), f, text_w)
+        wrap_text(str(product.get(tc.get("field", "titulo_1")) or ""), f, text_w)
         for tc, f in zip(titles_cfg, fonts_title)
     ]
 
@@ -732,16 +737,58 @@ def precompute_slide(product: dict, cfg: dict) -> dict:
         if pb_cfg else None
     )
 
+    # Pre-computar todos los valores estáticos de render (no cambian entre frames)
+    titles_render = [
+        {
+            "color":          tuple(tc["color"]),
+            "line_spacing":   float(tc.get("line_height", 1.25)),
+            "letter_spacing": _parse_px(tc.get("letter_spacing", 0)),
+            "shadow":         bool(tc.get("shadow", True)),
+            "appear_at":      tc["appear_at"],
+            "fade_duration":  tc["fade_duration"],
+        }
+        for tc in titles_cfg
+    ]
+    desc_render = {
+        "color":          tuple(d_cfg["color"]),
+        "line_spacing":   float(d_cfg.get("line_height", 1.25)),
+        "letter_spacing": _parse_px(d_cfg.get("letter_spacing", 0)),
+        "shadow":         bool(d_cfg.get("shadow", True)),
+        "appear_at":      d_cfg["appear_at"],
+        "fade_duration":  d_cfg["fade_duration"],
+    }
+    price_render = {
+        "color":          tuple(p_cfg["color"]),
+        "letter_spacing": _parse_px(p_cfg.get("letter_spacing", 0)),
+        "shadow":         bool(p_cfg.get("shadow", True)),
+        "appear_at":      p_cfg["appear_at"],
+        "fade_duration":  p_cfg["fade_duration"],
+        "badge":          p_cfg.get("badge") or None,
+    }
+    pb_render = {
+        "color":          tuple(pb_cfg.get("color",              [170, 170, 170])) if pb_cfg else (170, 170, 170),
+        "strike_color":   tuple(pb_cfg.get("strikethrough_color", [220, 80, 80]))  if pb_cfg else (220, 80, 80),
+        "letter_spacing": _parse_px(pb_cfg.get("letter_spacing", 0)) if pb_cfg else 0,
+        "shadow":         bool(pb_cfg.get("shadow", True)) if pb_cfg else True,
+        "gap":            int(pb_cfg.get("gap", 100)) if pb_cfg else 100,
+        "badge":          pb_cfg.get("badge") or None if pb_cfg else None,
+    } if pb_cfg else None
+
     return {
         "fonts_title":        fonts_title,
         "titles_lines":       titles_lines,
         "font_desc":          font_desc,
         "font_price":         font_price,
         "font_price_before":  font_price_before,
-        "desc_lines":         wrap_text(str(product.get("descripcion", "")), font_desc, text_w),
-        "price_lines":        [str(product.get("precio", ""))],
-        "price_before_text":  str(product.get("precio_antes", "")),
+        "desc_lines":         wrap_text(str(product.get("descripcion") or ""), font_desc, text_w),
+        "price_lines":        [str(product.get("precio") or "")],
+        "price_before_text":  str(product.get("precio_antes") or ""),
         "eff_title_sizes":    eff_title_sizes,
+        # Valores estáticos pre-computados para evitar recalcular en cada frame
+        "titles_render":      titles_render,
+        "desc_render":        desc_render,
+        "price_render":       price_render,
+        "pb_render":          pb_render,
     }
 
 
@@ -866,59 +913,57 @@ def render_frame(
     cx = CANVAS_W // 2
 
     # ── 4. Títulos (TV superior) ───────────────────────────────────────────────
-    for i, (tc, lines, font, cy) in enumerate(
-        zip(titles_cfg, precomp["titles_lines"], precomp["fonts_title"], title_cys)
+    for i, (tr, lines, font, cy) in enumerate(
+        zip(precomp["titles_render"], precomp["titles_lines"], precomp["fonts_title"], title_cys)
     ):
-        alpha = calc_alpha(t, tc["appear_at"], tc["fade_duration"], fo_start, fade_out)
+        alpha = calc_alpha(t, tr["appear_at"], tr["fade_duration"], fo_start, fade_out)
         draw_text_centered(
             canvas, lines, font,
             cx, cy,
-            color=tuple(tc["color"]),
+            color=tr["color"],
             alpha=alpha,
-            line_spacing=float(tc.get("line_height", 1.25)),
-            letter_spacing=_parse_px(tc.get("letter_spacing", 0)),
-            shadow=bool(tc.get("shadow", True)),
+            line_spacing=tr["line_spacing"],
+            letter_spacing=tr["letter_spacing"],
+            shadow=tr["shadow"],
         )
 
     # ── 5. Descripción ─────────────────────────────────────────────────────────
-    desc_alpha = calc_alpha(
-        t, d_cfg["appear_at"], d_cfg["fade_duration"], fo_start, fade_out
-    )
+    dr         = precomp["desc_render"]
+    desc_alpha = calc_alpha(t, dr["appear_at"], dr["fade_duration"], fo_start, fade_out)
     draw_text_centered(
         canvas, precomp["desc_lines"], precomp["font_desc"],
         cx, desc_cy,
-        color=tuple(d_cfg["color"]),
+        color=dr["color"],
         alpha=desc_alpha,
-        line_spacing=float(d_cfg.get("line_height", 1.25)),
-        letter_spacing=_parse_px(d_cfg.get("letter_spacing", 0)),
-        shadow=bool(d_cfg.get("shadow", True)),
+        line_spacing=dr["line_spacing"],
+        letter_spacing=dr["letter_spacing"],
+        shadow=dr["shadow"],
     )
 
     # ── 6. Precio (con tachado opcional) ──────────────────────────────────────
-    pb_cfg      = cfg.get("price_before", {})
-    price_alpha = calc_alpha(
-        t, p_cfg["appear_at"], p_cfg["fade_duration"], fo_start, fade_out
-    )
+    pr          = precomp["price_render"]
+    pbr         = precomp["pb_render"]
+    price_alpha = calc_alpha(t, pr["appear_at"], pr["fade_duration"], fo_start, fade_out)
     draw_prices(
         canvas,
         price_text   = precomp["price_lines"][0],
         font_price   = precomp["font_price"],
-        price_color  = tuple(p_cfg["color"]),
+        price_color  = pr["color"],
         before_text  = precomp["price_before_text"],
         font_before  = precomp["font_price_before"],
-        before_color = tuple(pb_cfg.get("color",              [170, 170, 170])),
-        strike_color = tuple(pb_cfg.get("strikethrough_color", [220,  80,  80])),
+        before_color = pbr["color"]        if pbr else (170, 170, 170),
+        strike_color = pbr["strike_color"] if pbr else (220,  80,  80),
         cx     = cx,
         cy     = price_cy,
         alpha  = price_alpha,
-        gap    = int(pb_cfg.get("gap", 100)),
-        shadow_color = (80, 50, 0),
-        letter_spacing        = _parse_px(p_cfg.get("letter_spacing", 0)),
-        letter_spacing_before = _parse_px(pb_cfg.get("letter_spacing", 0)),
-        price_badge           = p_cfg.get("badge") or None,
-        price_before_badge    = pb_cfg.get("badge") or None,
-        shadow                = bool(p_cfg.get("shadow", True)),
-        shadow_before         = bool(pb_cfg.get("shadow", True)),
+        gap    = pbr["gap"] if pbr else 100,
+        shadow_color          = (0, 0, 0),
+        letter_spacing        = pr["letter_spacing"],
+        letter_spacing_before = pbr["letter_spacing"] if pbr else 0,
+        price_badge           = pr["badge"],
+        price_before_badge    = pbr["badge"] if pbr else None,
+        shadow                = pr["shadow"],
+        shadow_before         = pbr["shadow"] if pbr else True,
     )
 
     # ── 7. Logos (globales: entran una vez, se mantienen y salen al final) ────
@@ -1005,60 +1050,99 @@ def generate_video(products: list[dict], cfg: dict, output_path: str) -> None:
         output_path,
     ]
 
+    import threading
+
+    # stderr → fichero temporal para evitar deadlock por buffer lleno
+    # (si usáramos PIPE y llamáramos a proc.wait() antes de leer stderr,
+    #  FFmpeg se bloquearía escribiendo y nunca terminaría)
+    import tempfile
+    _stderr_file = tempfile.TemporaryFile()
+
     proc = subprocess.Popen(
         ffmpeg_cmd,
         stdin=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
+        stderr=_stderr_file,
     )
 
     frames_written  = 0
     t_global_base   = 0.0
     bar_width       = 36
+    ffmpeg_error    = False
 
     def print_progress(label: str, pct: float) -> None:
         filled = int(bar_width * pct / 100)
         bar    = "█" * filled + "░" * (bar_width - filled)
         print(f"\r  {pct:5.1f}%  [{bar}]  {label:<35}", end="", flush=True)
 
-    for idx, product in enumerate(products):
-        slide_dur    = float(product.get("duracion", default_dur))
-        frames_slide = int(fps * slide_dur)
-        _name        = product.get("producto") or product.get("titulo_1") or f"Slide {idx + 1}"
-        label        = f"({idx + 1}/{n}) {_name}"
+    try:
+        for idx, product in enumerate(products):
+            slide_dur    = float(product.get("duracion", default_dur))
+            frames_slide = int(fps * slide_dur)
+            _name        = product.get("producto") or product.get("titulo_1") or f"Slide {idx + 1}"
+            label        = f"({idx + 1}/{n}) {_name}"
 
-        bg_source = load_background_source(product.get("imagen") or product.get("fondo"), fps)
-        is_video  = isinstance(bg_source, VideoBackground)
-        precomp   = precompute_slide(product, cfg)
+            bg_source = load_background_source(product.get("imagen") or product.get("fondo"), fps)
+            is_video  = isinstance(bg_source, VideoBackground)
+            precomp   = precompute_slide(product, cfg)
 
-        for fi in range(frames_slide):
-            bg_arr   = bg_source.get_next_frame() if is_video else bg_source
-            t        = fi / fps
-            t_global = t_global_base + t
-            frame    = render_frame(
-                bg_arr, precomp, cfg, t, slide_dur, overlay, vignette,
-                logo_img, logo_pos, logo_footer_img, logo_footer_pos,
-                t_global, total_secs,
-            )
-            proc.stdin.write(frame)
-            frames_written += 1
-            print_progress(label, frames_written / total_frames * 100)
+            for fi in range(frames_slide):
+                # Comprobar si FFmpeg murió antes de tiempo
+                if proc.poll() is not None:
+                    ffmpeg_error = True
+                    break
 
-        if is_video:
-            bg_source.close()
-        t_global_base += frames_slide / fps   # usar duración real (redondeada a frames)
+                bg_arr   = bg_source.get_next_frame() if is_video else bg_source
+                t        = fi / fps
+                t_global = t_global_base + t
+                frame    = render_frame(
+                    bg_arr, precomp, cfg, t, slide_dur, overlay, vignette,
+                    logo_img, logo_pos, logo_footer_img, logo_footer_pos,
+                    t_global, total_secs,
+                )
+                try:
+                    proc.stdin.write(frame)
+                except BrokenPipeError:
+                    ffmpeg_error = True
+                    break
 
-    proc.stdin.close()
+                frames_written += 1
+                print_progress(label, frames_written / total_frames * 100)
+
+            if is_video:
+                bg_source.close()
+            if ffmpeg_error:
+                break
+            t_global_base += slide_dur   # acumular duración exacta (sin drift)
+
+    finally:
+        try:
+            proc.stdin.close()
+        except Exception:
+            pass
+
     ret = proc.wait()
+
+    # Leer stderr del fichero temporal (ya sin riesgo de deadlock)
+    _stderr_file.seek(0)
+    stderr_output = _stderr_file.read().decode("utf-8", errors="replace").strip()
+    _stderr_file.close()
+
     print_progress("¡Completado!", 100.0)
     print()  # nueva línea al terminar
 
-    if ret == 0:
+    if ret == 0 and not ffmpeg_error:
         size_mb = Path(output_path).stat().st_size / (1024 ** 2)
         print(f"\n  ✅  Vídeo generado correctamente ({size_mb:.1f} MB)")
         print(f"      → {Path(output_path).resolve()}")
     else:
         print(f"\n  ❌  FFmpeg terminó con error (código {ret})", file=sys.stderr)
-        sys.exit(ret)
+        if stderr_output:
+            # Mostrar las últimas 20 líneas del log de FFmpeg
+            lines = stderr_output.splitlines()
+            print("\n  — Log de FFmpeg —", file=sys.stderr)
+            for line in lines[-20:]:
+                print(f"  {line}", file=sys.stderr)
+        sys.exit(ret if ret != 0 else 1)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

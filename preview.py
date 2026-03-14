@@ -98,6 +98,26 @@ def _ls_correction(font_path: str, canvas_font_size: int) -> float:
     return result
 
 
+def _title_block_half_h(font_path: str, canvas_font_size: int,
+                         n_lines: int, line_spacing: float) -> int:
+    """
+    Semialtura del bloque de título en píxeles CANVAS.
+    Equivalente exacto a generate_video._title_block_half_h().
+    """
+    if not _pil_available:
+        return int(canvas_font_size * line_spacing * n_lines / 2)
+    try:
+        path = resolve_path(font_path)
+        font = _PILFont.truetype(str(path), canvas_font_size)
+        img  = _PILImage.new("RGBA", (canvas_font_size * 4, canvas_font_size * 2))
+        drw  = _PILDraw.Draw(img)
+        bb   = drw.textbbox((0, 0), "Ágjy", font=font)
+        lh   = bb[3] - bb[1]
+        return int(lh * line_spacing * n_lines / 2)
+    except Exception:
+        return int(canvas_font_size * line_spacing * n_lines / 2)
+
+
 def _glyph_height_css(font_path: str, canvas_font_size: int) -> float:
     """
     Altura visual del glifo (bb[3] - bb[1]) en píxeles CSS.
@@ -282,15 +302,25 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
     tv_top_end   = TV_SPLIT - split_safe
     tv_top_span  = tv_top_end - tv_top_start
     n_titles     = len(titles_cfg)
+    # Precalcular semialtura real de cada bloque (mismo algoritmo que generate_video)
+    t_half_hs = [
+        _title_block_half_h(
+            tc.get("font", ""),
+            eff_t_sizes[i],
+            1,                             # n_lines=1 como base; CSS hará el wrap
+            float(tc.get("line_height", 1.25)),
+        )
+        for i, tc in enumerate(titles_cfg)
+    ]
     title_cys: list[int] = []
     for i, tc in enumerate(titles_cfg):
-        half_h = tc["font_size"] // 2
+        half_h = t_half_hs[i]
         if i == 0:
             default_mt = int(tv_top_span * 0.25)
-            cy = tv_top_start + tc.get("margin_top", default_mt)
+            cy = tv_top_start + tc.get("margin_top", default_mt) + half_h
         else:
-            prev_half  = titles_cfg[i - 1]["font_size"] // 2
-            default_mt = int(titles_cfg[i - 1]["font_size"] * 0.3)
+            prev_half  = t_half_hs[i - 1]
+            default_mt = int(eff_t_sizes[i - 1] * 0.3)
             cy = title_cys[-1] + prev_half + tc.get("margin_top", default_mt) + half_h
         title_cys.append(cy)
 
@@ -377,7 +407,7 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
         if not enabled:
             return _NO_SHADOW
         return _SHADOW_PRICE if strong else _SHADOW_TXT
-    pb_text     = product.get("precio_antes", "")
+    pb_text     = product.get("precio_antes") or ""
 
     # Zona segura
     safe_top_px    = (TV_SPLIT - split_safe) * SCALE
@@ -430,7 +460,7 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
             f'{_shadow_css(t_shadows[i])}'
             f'width:100%;'
             f'text-align:center;">'
-            f'{product.get(titles_cfg[i].get("field","titulo_1"), "")}'
+            f'{product.get(titles_cfg[i].get("field","titulo_1")) or ""}'
             f'</div>'
             for i in range(n_titles)
           )}
@@ -448,7 +478,7 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
             {_shadow_css(d_shadow)}
             left:{safe_m * SCALE:.2f}px;
             right:{safe_m * SCALE:.2f}px;">
-          {product.get("descripcion", "")}
+          {product.get("descripcion") or ""}
         </div>
 
         <!-- Precio (TV inferior — abajo) -->
@@ -487,7 +517,7 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
             {_shadow_css(p_shadow, strong=True)}
             white-space:nowrap;
             {price_badge_css}">
-            {product.get("precio", "")}
+            {product.get("precio") or ""}
           </span>
         </div>
 

@@ -20,12 +20,20 @@ PROJECT = Path(__file__).parent
 
 ICONS = [
     {
-        "file":    "Generar Vídeo.command",
+        "file":    "HIGH VIDEO.command",
         "bg":      (15, 20, 40),
         "accent":  (255, 200, 50),
         "symbol":  "▶",
-        "line1":   "GENERAR",
-        "line2":   "VÍDEO",
+        "line1":   "HIGH",
+        "line2":   "VIDEO",
+    },
+    {
+        "file":    "LOW VIDEO.command",
+        "bg":      (35, 15, 40),
+        "accent":  (200, 100, 255),
+        "symbol":  "⚡",
+        "line1":   "LOW",
+        "line2":   "VIDEO",
     },
     {
         "file":    "Preview.command",
@@ -34,14 +42,6 @@ ICONS = [
         "symbol":  "⬡",
         "line1":   "PREVIEW",
         "line2":   "HTML",
-    },
-    {
-        "file":    "Preview Vídeo.command",
-        "bg":      (35, 15, 40),
-        "accent":  (200, 100, 255),
-        "symbol":  "⚡",
-        "line1":   "PREVIEW",
-        "line2":   "VÍDEO",
     },
     {
         "file":         "Sincronizar Sheets.command",

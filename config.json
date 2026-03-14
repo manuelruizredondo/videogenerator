@@ -68,8 +68,8 @@
     }
   ],
   "description": {
-    "font": "fonts/neutrif/font-light.ttf",
-    "font_size": 105,
+    "font": "fonts/neutrif/font-regular.ttf",
+    "font_size": 150,
     "letter_spacing": 0,
     "line_height": 1.25,
     "shadow": false,
@@ -89,8 +89,8 @@
     "shadow": false,
     "badge": {
       "background": [0, 0, 0, 117],
-      "padding_x": 20,
-      "padding_y": 30,
+      "padding_x": 90,
+      "padding_y": 50,
       "border_radius": 45
     },
     "color": [

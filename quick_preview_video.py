@@ -18,7 +18,7 @@ import sys
 import generate_video as gv
 
 # ── Factor de escala ──────────────────────────────────────────────────────────
-SCALE = 0.25   # 1/4 de la resolución original → 16× más rápido de renderizar
+SCALE = 0.125  # 1/8 de la resolución original → 64× menos píxeles que el original
 
 
 def scale_config(cfg: dict) -> dict:
@@ -32,32 +32,49 @@ def scale_config(cfg: dict) -> dict:
     c["safe_margin"]     = sc(cfg["safe_margin"])
     c["split_safe_zone"] = sc(cfg["split_safe_zone"])
 
-    # Títulos: font_size + margin_top
+    # Títulos: font_size + margin_top + letter_spacing
     for tc in c.get("titles", []):
         tc["font_size"] = sc(tc["font_size"])
         if "margin_top" in tc:
             tc["margin_top"] = sc(tc["margin_top"])
+        if "letter_spacing" in tc:
+            tc["letter_spacing"] = sc(tc["letter_spacing"])
 
     # Descripción y precio principal
     for section in ("description", "price"):
         c[section]["font_size"] = sc(cfg[section]["font_size"])
+        if "letter_spacing" in cfg[section]:
+            c[section]["letter_spacing"] = sc(cfg[section]["letter_spacing"])
 
     # Precio anterior (tachado)
     if "price_before" in c:
         c["price_before"]["font_size"] = sc(cfg["price_before"]["font_size"])
         if "gap" in c["price_before"]:
             c["price_before"]["gap"] = sc(cfg["price_before"]["gap"])
+        if "letter_spacing" in cfg.get("price_before", {}):
+            c["price_before"]["letter_spacing"] = sc(cfg["price_before"]["letter_spacing"])
 
     # Logos (header y footer)
     for key in ("logo", "logo_footer"):
         if key in c:
-            c[key]["width"]       = sc(cfg[key].get("width",       400))
-            c[key]["margin_top"]  = sc(cfg[key].get("margin_top",  150))
-            c[key]["margin_side"] = sc(cfg[key].get("margin_side", 150))
+            c[key]["width"]          = sc(cfg[key].get("width",          400))
+            c[key]["margin_top"]     = sc(cfg[key].get("margin_top",     150))
+            c[key]["margin_side"]    = sc(cfg[key].get("margin_side",    150))
+
+    # Badge: escalar paddings y border_radius
+    for section in ("price", "price_before"):
+        if section in c and "badge" in c[section]:
+            b = c[section]["badge"]
+            for k in ("padding", "padding_x", "padding_y", "border_radius"):
+                if k in b:
+                    b[k] = sc(b[k])
 
     # Encoder rápido — calidad no importa para preview
     c["encoder_preset"] = "ultrafast"
     c["encoder_crf"]    = 28
+
+    # Menos FPS → menos frames a renderizar manteniendo la duración real
+    c["fps"] = 12
 
     return c
 
