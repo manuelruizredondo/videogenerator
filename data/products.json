@@ -1,11 +1,11 @@
 [
   {
-    "titulo_1": "ÁCIDO HIALURÓNICO",
-    "titulo_2": "Rellenoyyyyy24444",
-    "titulo_3": "Sin cirugía · Resultados inmediatos",
-    "descripcion": "Relleno de labios, pómulos y surcos nasogenianos. Resultados naturales e inmediatos. Sin cirugía.",
-    "precio_antes": "350 €",
-    "precio": "Desde 250 €",
+    "titulo_1": "TITULO 1",
+    "titulo_2": "TITULO 2",
+    "titulo_3": "TITULO 3",
+    "descripcion": "Descripción",
+    "precio_antes": "Precio anterior",
+    "precio": "Precio actual",
     "imagen": "assets/backgrounds/video-ecoalf-final-es.mov"
   },
   {
