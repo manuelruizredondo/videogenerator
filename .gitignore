@@ -10,7 +10,8 @@ credentials/oauth_client.json
 
 # ── Vídeos e imágenes pesadas ─────────────────────────────────────────────────
 assets/backgrounds/
-output/
+output/*
+!output/index.html
 
 # ── macOS ─────────────────────────────────────────────────────────────────────
 .DS_Store

@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Preview — Escaparate Dual 4K</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    @font-face {
+  font-family: 'font-bold';
+  src: url('../fonts/neutrif/font-bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-synthesis: none;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'cinzel';
+  src: url('../fonts/cinzel.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-synthesis: none;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'font-regular';
+  src: url('../fonts/neutrif/font-regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-synthesis: none;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'font-light';
+  src: url('../fonts/neutrif/font-light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-synthesis: none;
+  font-display: swap;
+}
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0e0e0e;
+      --surface: #1a1a1a;
+      --border:  #2a2a2a;
+      --accent:  #f5a623;
+      --red:     #ff4444;
+      --yellow:  rgba(255,210,0,0.55);
+    }
+
+    body {
+      background: var(--bg);
+      color: #ddd;
+      font-family: 'Montserrat', system-ui, sans-serif;
+      padding: 32px 24px 64px;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .header h1 {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 10px;
+    }
+    .badges {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 11px;
+    }
+    .badge {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 12px;
+      color: #777;
+    }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 36px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 16px;
+      font-size: 11px;
+      font-family: inherit;
+      color: #aaa;
+      cursor: pointer;
+      letter-spacing: .06em;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .btn:hover  { background: #252525; color: #ddd; }
+    .btn.active { background: #2a2a2a; border-color: var(--accent); color: var(--accent); }
+
+    /* ── Grid de slides ── */
+    .slides-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 40px;
+      justify-content: center;
+    }
+
+    /* ── Wrapper individual ── */
+    .slide-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .slide-meta {
+      display: flex;
+      width: 500px;
+      justify-content: space-between;
+      font-size: 10px;
+      color: #555;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .slide-title-label {
+      font-size: 11px;
+      color: #666;
+      max-width: 500px;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── El slide ── */
+    .slide {
+      width: 500px;
+      height: 562px;
+      position: relative;
+      overflow: hidden;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      cursor: crosshair;
+      transition: box-shadow .2s;
+    }
+    .slide:hover { box-shadow: 0 0 0 2px rgba(245,166,35,.35); }
+
+    /* ── Textos ── */
+    .txt {
+      position: absolute;
+      text-align: center;
+      transform: translateY(-50%);
+      line-height: 1.25;
+      font-family: 'Montserrat', system-ui, sans-serif;
+      word-break: break-word;
+      hyphens: auto;
+      z-index: 5;
+    }
+    .title-txt  { font-weight: 900; }
+    .desc-txt   { font-weight: 400; }
+    .price-txt  { font-weight: 900; }
+
+    /* ── Guías (visibles solo con clase .show-guides en body) ── */
+    .guide { position: absolute; pointer-events: none; display: none; }
+    body.show-guides .guide { display: block; }
+
+    .split-guide {
+      left: 0; right: 0; height: 1px;
+      background: var(--red);
+      opacity: .8;
+      z-index: 20;
+    }
+    .split-guide .guide-label {
+      position: absolute;
+      right: 6px; top: 3px;
+      font-size: 7px;
+      color: var(--red);
+      font-family: 'Montserrat', monospace;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .safe-band {
+      left: 0; right: 0;
+      background: rgba(255,200,0,.07);
+      border-top: 1px dashed rgba(255,200,0,.35);
+      border-bottom: 1px dashed rgba(255,200,0,.35);
+      z-index: 19;
+    }
+    .margin-top    { left:0;right:0;height:1px;   background:rgba(0,200,255,.3); z-index:18; }
+    .margin-bottom { left:0;right:0;height:1px;   background:rgba(0,200,255,.3); z-index:18; }
+    .margin-left   { top:0;bottom:0;width:1px;    background:rgba(0,200,255,.3); z-index:18; }
+    .margin-right  { top:0;bottom:0;width:1px;    background:rgba(0,200,255,.3); z-index:18; }
+
+    /* ── Template SPLIT: panel derecho que entra desde la derecha ── */
+    @media print {
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      body { background: #000 !important; margin: 0; padding: 0; }
+      .toolbar, .slide-meta, .slide-title-label { display: none !important; }
+      .slides-grid { display: block !important; padding: 0 !important; gap: 0 !important; }
+      .slide-wrapper {
+        page-break-after: always;
+        break-after: page;
+        display: flex !important;
+        justify-content: center;
+        align-items: center;
+        width: 100vw;
+        height: 100vh;
+        margin: 0; padding: 0;
+      }
+      .slide {
+        width: 100vw !important;
+        height: 100vh !important;
+        border-radius: 0 !important;
+        position: relative !important;
+      }
+    }
+
+    @keyframes slideInRight {
+      from { transform: translateX(100%); }
+      to   { transform: translateX(0);    }
+    }
+    .split-panel {
+      position: absolute;
+      top: 0; bottom: 0;
+      z-index: 0;
+      animation: slideInRight 0.7s cubic-bezier(0,0,.2,1) forwards;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Preview — Escaparate Dual 4K</h1>
+    <div class="badges">
+      <span class="badge">3840 × 4320 px</span>
+      <span class="badge">7 slides</span>
+      <span class="badge">72 s totales</span>
+      <span class="badge">25 fps · H.264</span>
+      <span class="badge">Escala 13.0%</span>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn" id="btn-guides" onclick="toggleGuides()">Mostrar guías</button>
+    <button class="btn" id="btn-fullscreen" onclick="toggleFullscreen()">Vista ampliada</button>
+    <button class="btn" id="btn-jpg" onclick="exportJPG()">Exportar JPG</button>
+    <button class="btn" id="btn-pdf" onclick="exportPDF()">Exportar PDF</button>
+  </div>
+
+  <div class="slides-grid" id="grid">
+
+    <div class="slide-wrapper" data-index="0">
+      <div class="slide-meta">
+        <span class="slide-num">Slide 1 / 7</span>
+        <span class="slide-dur">10 s · centered</span>
+      </div>
+      <div class="slide" style="background:#000;">
+
+        <!-- Fondo de vídeo (template centered) -->
+        <video autoplay muted loop playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;"><source src="../assets/backgrounds/video.mp4"></video>
+
+        <!-- Overlay / panel split -->
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,0.43);pointer-events:none;z-index:1;"></div>
+        
+
+        <!-- Logo header -->
+        <img src="../assets/logo.png" alt="logo" style="position:absolute;left:50%;transform:translateX(-50%);top:15.63px;width:67.71px;height:auto;object-fit:contain;z-index:10;pointer-events:none;">
+
+        <!-- Logo footer -->
+        <img src="../assets/logofooter.png" alt="logo_footer" style="position:absolute;left:50%;transform:translateX(-50%);bottom:13.02px;width:54.69px;height:auto;object-fit:contain;z-index:10;pointer-events:none;">
+
+        <!-- Títulos (TV superior) -->
+        <div style="
+            position:absolute;
+            top:19.53px;
+            left:19.53px;
+            right:19.53px;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            z-index:5;">
+          <div class="txt title-txt" style="position:relative;transform:none;margin-top:91.15px;font-size:16.93px;font-family:'font-bold',system-ui,sans-serif;font-weight:700;line-height:1.25;color:rgb(255,255,255);letter-spacing:3.98px;text-shadow:none;width:100%;text-align:center;">BIENVENIDO</div><div class="txt title-txt" style="position:relative;transform:none;margin-top:9.11px;font-size:28.65px;font-family:'cinzel',system-ui,sans-serif;font-weight:400;line-height:1.25;color:rgb(255,255,255);letter-spacing:2.00px;text-shadow:none;width:100%;text-align:center;">Centre Mèdic Basté</div><div class="txt title-txt" style="position:relative;transform:none;margin-top:6.51px;font-size:13.02px;font-family:'font-regular',system-ui,sans-serif;font-weight:400;line-height:1.25;color:rgb(255,255,255);letter-spacing:0.05px;text-shadow:none;width:100%;text-align:center;">Medicina Estética · Odontología · Micropigmentación</div>
+        </div>
+
+        <!-- Descripción (TV inferior — arriba) -->
+        <div class="txt desc-txt" style="
+            top:394.79px;
+            font-size:19.53px;
+            font-family:'font-regular',system-ui,sans-serif;
+            font-weight:400;
+            line-height:1.25;
+            color:rgb(255,255,255);
+            letter-spacing:0.07px;
+            text-shadow:none;
+            left:19.53px;
+            right:19.53px;
+            text-align:center;">
+          Especialistas en tratamientos estéticos y dentales.<br>Te cuidamos con los mejores profesionales.
+        </div>
+
+        <!-- Precio (TV inferior — abajo; solo si hay texto) -->
+        <div style="
+            position:absolute;
+            top:477.08px;
+            transform:translateY(-50%);
+            left:19.53px;
+            right:19.53px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            gap:26.04px;
+            z-index:5;">
+          
+          <span class="price-txt" style="
+            font-family:'font-regular',system-ui,sans-serif;
+            font-size:28.65px;
+            font-weight:400;
+            line-height:1.25;
+            color:rgb(255,255,255);
+            letter-spacing:0.09px;
+            text-shadow:none;
+            white-space:nowrap;
+            background:rgba(0,0,0,0.459);display:inline-flex;align-items:center;height:38.02px;padding:0 11.72px;border-radius:5.86px;box-sizing:content-box;">
+            Entra y pregunta
+          </span>
+        </div>
+
+        <!-- Indicadores de zona segura (toggle) -->
+        <div class="guide split-guide" style="top:281.25px;">
+          <span class="guide-label">unión pantallas · y=2160</span>
+        </div>
+        <div class="guide safe-band" style="top:244.79px;height:72.92px;"></div>
+        <div class="guide margin-top"    style="top:19.53px;"></div>
+        <div class="guide margin-bottom" style="bottom:19.53px;"></div>
+        <div class="guide margin-left"   style="left:19.53px;"></div>
+        <div class="guide margin-right"  style="right:19.53px;"></div>
+
+      </div>
+      <div class="slide-title-label">Bienvenida</div>
+    </div>
+
+    <div class="slide-wrapper" data-index="1">
+      <div class="slide-meta">
+        <span class="slide-num">Slide 2 / 7</span>
+        <span class="slide-dur">12 s · centered</span>
+      </div>
+      <div class="slide" style="background:#000;">
+
+        <!-- Fondo de vídeo (template centered) -->
+        <video autoplay muted loop playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;"><source src="../assets/backgrounds/party.mp4"></video>
+
+        <!-- Overlay / panel split -->
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,0.43);pointer-events:none;z-index:1;"></div>
+        
+
+        <!-- Logo header -->
+        <img src="../assets/logo.png" alt="logo" style="position:absolute;left:50%;transform:translateX(-50%);top:15.63px;width:67.71px;height:auto;object-fit:contain;z-index:10;pointer-events:none;">
+
+        <!-- Logo footer -->
+        <img src="../assets/logofooter.png" alt="logo_footer" style="position:absolute;left:50%;transform:translateX(-50%);bottom:13.02px;width:54.69px;height:auto;object-fit:contain;z-index:10;pointer-events:none;">
+
+        <!-- Títulos (TV superior) -->
+        <div style="
+            position:absolute;
+            top:19.53px;
+            left:19.53px;
+            right:19.53px;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            z-index:5;">
+          <div class="txt title-txt" style="position:relative;transform:none;margin-top:91.15px;font-size:16.93px;font-family:'font-bold',system-ui,sans-serif;font-weight:700;line-height:1.25;color:rgb(255,255,255);letter-spacing:3.98px;text-shadow:none;width:100%;text-align:center;">¡ESTAMOS DE ANIVERSARIO!<br> 3 AÑOS CONTIGO</div><div class="txt title-txt" style="position:relative;transform:none;margin-top:9.11px;font-size:28.65px;font-family:'cinzel',system-ui,sans-serif;font-weight:400;line-height:1.25;color:rgb(255,255,255);letter-spacing:2.00px;text-shadow:none;width:100%;text-align:center;">24 DE ABRIL<br> PUERTAS ABIERTAS</div><div class="txt title-txt" style="position:relative;transform:none;margin-top:6.51px;font-size:13.02px;font-family:'font-regular',system-ui,sans-serif;font-weight:400;line-height:1.25;color:rgb(255,255,255);letter-spacing:0.05px;text-shadow:none;width:100%;text-align:center;">Medicina Estética y Micropigmentación</div>
+        </div>
+
+        <!-- Descripción (TV inferior — arriba) -->
+        <div class="txt desc-txt" style="
+            top:394.79px;
+            font-size:19.53px;
+            font-family:'font-regular',system-ui,sans-serif;
+            font-weight:400;
+            line-height:1.25;
+            color:rgb(255,255,255);
+            letter-spacing:0.07px;
+            text-shadow:none;
+            left:19.53px;
+            right:19.53px;
+            text-align:center;">
+          10% DESCUENTO SOLO ESE DÍA.<br> ¡Pide tu cita ahora!
+        </div>
+
+        <!-- Precio (TV inferior — abajo; solo si hay texto) -->
+        <div style="
+            position:absolute;
+            top:477.08px;
+            transform:translateY(-50%);
+            left:19.53px;
+            right:19.53px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            gap:26.04px;
+            z-index:5;">
+          
+          <span class="price-txt" style="
+            font-family:'font-regular',system-ui,sans-serif;
+            font-size:28.65px;
+            font-weight:400;
+            line-height:1.25;
+            color:rgb(255,255,255);
+            letter-spacing:0.09px;
+            text-shadow:none;
+            white-space:nowrap;
+            background:rgba(0,0,0,0.459);display:inline-flex;align-items:center;height:38.02px;padding:0 11.72px;border-radius:5.86px;box-sizing:content-box;">
+            Cóctel de 15h a 20h
+          </span>
+        </div>
+
+        <!-- Indicadores de zona segura (toggle) -->
+        <div class="guide split-guide" style="top:281.25px;">
+          <span class="guide-label">unión pantallas · y=2160</span>
+        </div>
+        <div class="guide safe-band" style="top:244.79px;height:72.92px;"></div>
+        <div class="guide margin-top"    style="top:19.53px;"></div>
+        <div class="guide margin-bottom" style="bottom:19.53px;"></div>
+        <div class="guide margin-left"   style="left:19.53px;"></div>
+        <div class="guide margin-right"  style="right:19.53px;"></div>
+
+      </div>
+      <div class="slide-title-label">Aniversario 3 años</div>
+    </div>
+
+    <div class="slide-wrapper" data-index="2">
+      <div class="slide-meta">
+        <span class="slide-num">Slide 3 / 7</span>
+        <span class="slide-dur">10 s · centered</span>
+      </div>
+      <div class="slide" style="background:#000;">
+
+        <!-- Fondo de vídeo (template centered) -->
+        <video autoplay muted loop playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;"><source src="../assets/backgrounds/cejas.mp4"></video>
+
+        <!-- Overlay / panel split -->
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,0.43);pointer-events:none;z-index:1;"></div>
+        
+
+        <!-- Logo header -->
+        <img src="../assets/logo.png" alt="logo" style="position:absolute;left:50%;transform:translateX(-50%);top:15.63px;width:67.71px;height:auto;object-fit:contain;z-index:10;pointer-events:none;">
+
+        <!-- Logo footer -->
+        <img src="../assets/logofooter.png" alt="logo_footer" style="position:absolute;left:50%;transform:translateX(-50%);bottom:13.02px;width:54.69px;height:auto;object-fit:contain;z-index:10;pointer-events:none;">
+
+        <!-- Títulos (TV superior) -->
+        <div style="
+            position:absolute;
+            top:19.53px;
+            left:19.53px;
+            right:19.53px;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            z-index:5;">
+          <div class="txt title-txt" style="position:relative;transform:none;margin-top:91.15px;font-size:16.93px;font-family:'font-bold',system-ui,sans-serif;font-weight:700;line-height:1.25;color:rgb(255,255,255);letter-spacing:3.98px;text-shadow:none;width:100%;text-align:center;">MICROPIGMENTACIÓN</div><div class="txt title-txt" style="position:relative;transform:none;margin-top:9.11px;font-size:28.65px;font-family:'cinzel',system-ui,sans-serif;font-weight:400;line-height:1.25;color:rgb(255,255,255);letter-spacing:2.00px;text-shadow:none;width:100%;text-align:center;">Cejas perfectas</div><div class="txt title-txt" style="position:relative;transform:none;margin-top:6.51px;font-size:13.02px;font-family:'font-regular',system-ui,sans-serif;font-weight:400;line-height:1.25;color:rgb(255,255,255);letter-spacing:0.05px;text-shadow:none;width:100%;text-align:center;">Técnica pelo a pelo · Hasta 2 años</div>
+        </div>
+
+        <!-- Descripción (TV inferior — arriba) -->
+        <div class="txt desc-txt" style="
+            top:394.79px;
+            font-size:19.53px;
+            font-family:'font-regular',system-ui,sans-serif;
+            font-weight:400;
+            line-height:1.25;
+            color:rgb(255,255,255);
+            letter-spacing:0.07px;
+            text-shadow:none;
+            left:19.53px;
+            right:19.53px;
+            text-align:center;">
+          Cejas perfectas con técnica pelo a pelo. Resultado natural y duradero hasta 2 años. Sin mantenimiento diario.
+        </div>
+
+        <!-- Precio (TV inferior — abajo; solo si hay texto) -->
+        <div style="
+            position:absolute;
+            top:477.08px;
+            transform:translateY(-50%);
+            left:19.53px;
+            right:19.53px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            gap:26.04px;
+            z-index:5;">
+          <span style='font-family:font-light,system-ui,sans-serif;font-size:24.74px;font-weight:300;color:rgb(170,170,170);text-decoration:line-through;text-decoration-color:rgb(255,255,255);text-decoration-thickness:2px;letter-spacing:0.08px;text-shadow:none;white-space:nowrap;'>Antes desde 450 €</span>
+          <span class="price-txt" style="
+            font-family:'font-regular',system-ui,sans-serif;
+            font-size:28.65px;
+            font-weight:400;
+            line-height:1.25;
+            color:rgb(255,255,255);
+            letter-spacing:0.09px;
+            text-shadow:none;
+            white-space:nowrap;
+            background:rgba(0,0,0,0.459);display:inline-flex;align-items:center;height:38.02px;padding:0 11.72px;border-radius:5.86px;box-sizing:content-box;">
+            Desde 320 €
+          </span>
+        </div>
+
+        <!-- Indicadores de zona segura (toggle) -->
+        <div class="guide split-guide" style="top:281.25px;">
+          <span class="guide-label">unión pantallas · y=2160</span>
+        </div>
+        <div class="guide safe-band" style="top:244.79px;height:72.92px;"></div>
+        <div class="guide margin-top"    style="top:19.53px;"></div>
+        <div class="guide margin-bottom" style="bottom:19.53px;"></div>
+        <div class="guide margin-left"   style="left:19.53px;"></div>
+        <div class="guide margin-right"  style="right:19.53px;"></div>
+
+      </div>
+      <div class="slide-title-label">Micropigmentación</div>
+    </div>
+
+    <div class="slide-wrapper" data-index="3">
+      <div class="slide-meta">
+        <span class="slide-num">Slide 4 / 7</span>
+        <span class="slide-dur">10 s · centered</span>
+      </div>
+      <div class="slide" style="background-image:url('../assets/backgrounds/img_implantologia.jpg');background-size:cover;background-position:center;">
+
+        <!-- Fondo de vídeo (template centered) -->
+        
+
+        <!-- Overlay / panel split -->
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,0.43);pointer-events:none;z-index:1;"></div>
+        
+
+        <!-- Logo header -->
+        <img src="../assets/logo.png" alt="logo" style="position:absolute;left:50%;transform:translateX(-50%);top:15.63px;width:67.71px;height:auto;object-fit:contain;z-index:10;pointer-events:none;">
+
+        <!-- Logo footer -->
+        <img src="../assets/logofooter.png" alt="logo_footer" style="position:absolute;left:50%;transform:translateX(-50%);bottom:13.02px;width:54.69px;height:auto;object-fit:contain;z-index:10;pointer-events:none;">
+
+        <!-- Títulos (TV superior) -->
+        <div style="
+            position:absolute;
+            top:19.53px;
+            left:19.53px;
+            right:19.53px;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            z-index:5;">
+          <div class="txt title-txt" style="position:relative;transform:none;margin-top:91.15px;font-size:16.93px;font-family:'font-bold',system-ui,sans-serif;font-weight:700;line-height:1.25;color:rgb(255,255,255);letter-spacing:3.98px;text-shadow:none;width:100%;text-align:center;">ALL-ON-4</div><div class="txt title-txt" style="position:relative;transform:none;margin-top:9.11px;font-size:28.65px;font-family:'cinzel',system-ui,sans-serif;font-weight:400;line-height:1.25;color:rgb(255,255,255);letter-spacing:2.00px;text-shadow:none;width:100%;text-align:center;">Boca completa fija</div><div class="txt title-txt" style="position:relative;transform:none;margin-top:6.51px;font-size:13.02px;font-family:'font-regular',system-ui,sans-serif;font-weight:400;line-height:1.25;color:rgb(255,255,255);letter-spacing:0.05px;text-shadow:none;width:100%;text-align:center;">4 implantes · Sal con dientes ese mismo día</div>
+        </div>
+
+        <!-- Descripción (TV inferior — arriba) -->
+        <div class="txt desc-txt" style="
+            top:394.79px;
+            font-size:19.53px;
+            font-family:'font-regular',system-ui,sans-serif;
+            font-weight:400;
+            line-height:1.25;
+            color:rgb(255,255,255);
+            letter-spacing:0.07px;
+            text-shadow:none;
+            left:19.53px;
+            right:19.53px;
+            text-align:center;">
+          Boca completa fija con solo 4 implantes. Sal de la clínica con dientes ese mismo día. Solución permanente.
+        </div>
+
+        <!-- Precio (TV inferior — abajo; solo si hay texto) -->
+        <div style="
+            position:absolute;
+            top:477.08px;
+            transform:translateY(-50%);
+            left:19.53px;
+            right:19.53px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            gap:26.04px;
+            z-index:5;">
+          
+          <span class="price-txt" style="
+            font-family:'font-regular',system-ui,sans-serif;
+            font-size:28.65px;
+            font-weight:400;
+            line-height:1.25;
+            color:rgb(255,255,255);
+            letter-spacing:0.09px;
+            text-shadow:none;
+            white-space:nowrap;
+            background:rgba(0,0,0,0.459);display:inline-flex;align-items:center;height:38.02px;padding:0 11.72px;border-radius:5.86px;box-sizing:content-box;">
+            Consulta gratuita
+          </span>
+        </div>
+
+        <!-- Indicadores de zona segura (toggle) -->
+        <div class="guide split-guide" style="top:281.25px;">
+          <span class="guide-label">unión pantallas · y=2160</span>
+        </div>
+        <div class="guide safe-band" style="top:244.79px;height:72.92px;"></div>
+        <div class="guide margin-top"    style="top:19.53px;"></div>
+        <div class="guide margin-bottom" style="bottom:19.53px;"></div>
+        <div class="guide margin-left"   style="left:19.53px;"></div>
+        <div class="guide margin-right"  style="right:19.53px;"></div>
+
+      </div>
+      <div class="slide-title-label">All-on-4</div>
+    </div>
+
+    <div class="slide-wrapper" data-index="4">
+      <div class="slide-meta">
+        <span class="slide-num">Slide 5 / 7</span>
+        <span class="slide-dur">10 s · centered</span>
+      </div>
+      <div class="slide" style="background:#000;">
+
+        <!-- Fondo de vídeo (template centered) -->
+        <video autoplay muted loop playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;"><source src="../assets/backgrounds/airflow.mp4"></video>
+
+        <!-- Overlay / panel split -->
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,0.43);pointer-events:none;z-index:1;"></div>
+        
+
+        <!-- Logo header -->
+        <img src="../assets/logo.png" alt="logo" style="position:absolute;left:50%;transform:translateX(-50%);top:15.63px;width:67.71px;height:auto;object-fit:contain;z-index:10;pointer-events:none;">
+
+        <!-- Logo footer -->
+        <img src="../assets/logofooter.png" alt="logo_footer" style="position:absolute;left:50%;transform:translateX(-50%);bottom:13.02px;width:54.69px;height:auto;object-fit:contain;z-index:10;pointer-events:none;">
+
+        <!-- Títulos (TV superior) -->
+        <div style="
+            position:absolute;
+            top:19.53px;
+            left:19.53px;
+            right:19.53px;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            z-index:5;">
+          <div class="txt title-txt" style="position:relative;transform:none;margin-top:91.15px;font-size:16.93px;font-family:'font-bold',system-ui,sans-serif;font-weight:700;line-height:1.25;color:rgb(255,255,255);letter-spacing:3.98px;text-shadow:none;width:100%;text-align:center;">HIGIENE DENTAL</div><div class="txt title-txt" style="position:relative;transform:none;margin-top:9.11px;font-size:28.65px;font-family:'cinzel',system-ui,sans-serif;font-weight:400;line-height:1.25;color:rgb(255,255,255);letter-spacing:2.00px;text-shadow:none;width:100%;text-align:center;">Tecnología Airflow</div><div class="txt title-txt" style="position:relative;transform:none;margin-top:6.51px;font-size:13.02px;font-family:'font-regular',system-ui,sans-serif;font-weight:400;line-height:1.25;color:rgb(255,255,255);letter-spacing:0.05px;text-shadow:none;width:100%;text-align:center;">Blanqueamiento visible · 1 sesión</div>
+        </div>
+
+        <!-- Descripción (TV inferior — arriba) -->
+        <div class="txt desc-txt" style="
+            top:394.79px;
+            font-size:19.53px;
+            font-family:'font-regular',system-ui,sans-serif;
+            font-weight:400;
+            line-height:1.25;
+            color:rgb(255,255,255);
+            letter-spacing:0.07px;
+            text-shadow:none;
+            left:19.53px;
+            right:19.53px;
+            text-align:center;">
+          Limpieza profesional con tecnología Airflow. Elimina manchas, sarro y bacterias. Dientes más blancos en 1 sesión.
+        </div>
+
+        <!-- Precio (TV inferior — abajo; solo si hay texto) -->
+        <div style="
+            position:absolute;
+            top:477.08px;
+            transform:translateY(-50%);
+            left:19.53px;
+            right:19.53px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            gap:26.04px;
+            z-index:5;">
+          <span style='font-family:font-light,system-ui,sans-serif;font-size:24.74px;font-weight:300;color:rgb(170,170,170);text-decoration:line-through;text-decoration-color:rgb(255,255,255);text-decoration-thickness:2px;letter-spacing:0.08px;text-shadow:none;white-space:nowrap;'>120 €</span>
+          <span class="price-txt" style="
+            font-family:'font-regular',system-ui,sans-serif;
+            font-size:28.65px;
+            font-weight:400;
+            line-height:1.25;
+            color:rgb(255,255,255);
+            letter-spacing:0.09px;
+            text-shadow:none;
+            white-space:nowrap;
+            background:rgba(0,0,0,0.459);display:inline-flex;align-items:center;height:38.02px;padding:0 11.72px;border-radius:5.86px;box-sizing:content-box;">
+            Desde 90 €
+          </span>
+        </div>
+
+        <!-- Indicadores de zona segura (toggle) -->
+        <div class="guide split-guide" style="top:281.25px;">
+          <span class="guide-label">unión pantallas · y=2160</span>
+        </div>
+        <div class="guide safe-band" style="top:244.79px;height:72.92px;"></div>
+        <div class="guide margin-top"    style="top:19.53px;"></div>
+        <div class="guide margin-bottom" style="bottom:19.53px;"></div>
+        <div class="guide margin-left"   style="left:19.53px;"></div>
+        <div class="guide margin-right"  style="right:19.53px;"></div>
+
+      </div>
+      <div class="slide-title-label">Higiene dental</div>
+    </div>
+
+    <div class="slide-wrapper" data-index="5">
+      <div class="slide-meta">
+        <span class="slide-num">Slide 6 / 7</span>
+        <span class="slide-dur">10 s · centered</span>
+      </div>
+      <div class="slide" style="background-image:url('../assets/backgrounds/ortodoncia.jpg');background-size:cover;background-position:center;">
+
+        <!-- Fondo de vídeo (template centered) -->
+        
+
+        <!-- Overlay / panel split -->
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,0.43);pointer-events:none;z-index:1;"></div>
+        
+
+        <!-- Logo header -->
+        <img src="../assets/logo.png" alt="logo" style="position:absolute;left:50%;transform:translateX(-50%);top:15.63px;width:67.71px;height:auto;object-fit:contain;z-index:10;pointer-events:none;">
+
+        <!-- Logo footer -->
+        <img src="../assets/logofooter.png" alt="logo_footer" style="position:absolute;left:50%;transform:translateX(-50%);bottom:13.02px;width:54.69px;height:auto;object-fit:contain;z-index:10;pointer-events:none;">
+
+        <!-- Títulos (TV superior) -->
+        <div style="
+            position:absolute;
+            top:19.53px;
+            left:19.53px;
+            right:19.53px;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            z-index:5;">
+          <div class="txt title-txt" style="position:relative;transform:none;margin-top:91.15px;font-size:16.93px;font-family:'font-bold',system-ui,sans-serif;font-weight:700;line-height:1.25;color:rgb(255,255,255);letter-spacing:3.98px;text-shadow:none;width:100%;text-align:center;">PRIMERA VISITA</div><div class="txt title-txt" style="position:relative;transform:none;margin-top:9.11px;font-size:28.65px;font-family:'cinzel',system-ui,sans-serif;font-weight:400;line-height:1.25;color:rgb(255,255,255);letter-spacing:2.00px;text-shadow:none;width:100%;text-align:center;">Diagnóstico completo</div><div class="txt title-txt" style="position:relative;transform:none;margin-top:6.51px;font-size:13.02px;font-family:'font-regular',system-ui,sans-serif;font-weight:400;line-height:1.25;color:rgb(255,255,255);letter-spacing:0.05px;text-shadow:none;width:100%;text-align:center;">Sin compromiso · 100% gratuita</div>
+        </div>
+
+        <!-- Descripción (TV inferior — arriba) -->
+        <div class="txt desc-txt" style="
+            top:394.79px;
+            font-size:19.53px;
+            font-family:'font-regular',system-ui,sans-serif;
+            font-weight:400;
+            line-height:1.25;
+            color:rgb(255,255,255);
+            letter-spacing:0.07px;
+            text-shadow:none;
+            left:19.53px;
+            right:19.53px;
+            text-align:center;">
+          Diagnóstico completo sin compromiso. Te explicamos el tratamiento ideal para ti con total transparencia.
+        </div>
+
+        <!-- Precio (TV inferior — abajo; solo si hay texto) -->
+        <div style="
+            position:absolute;
+            top:477.08px;
+            transform:translateY(-50%);
+            left:19.53px;
+            right:19.53px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            gap:26.04px;
+            z-index:5;">
+          
+          <span class="price-txt" style="
+            font-family:'font-regular',system-ui,sans-serif;
+            font-size:28.65px;
+            font-weight:400;
+            line-height:1.25;
+            color:rgb(255,255,255);
+            letter-spacing:0.09px;
+            text-shadow:none;
+            white-space:nowrap;
+            background:rgba(0,0,0,0.459);display:inline-flex;align-items:center;height:38.02px;padding:0 11.72px;border-radius:5.86px;box-sizing:content-box;">
+            GRATIS
+          </span>
+        </div>
+
+        <!-- Indicadores de zona segura (toggle) -->
+        <div class="guide split-guide" style="top:281.25px;">
+          <span class="guide-label">unión pantallas · y=2160</span>
+        </div>
+        <div class="guide safe-band" style="top:244.79px;height:72.92px;"></div>
+        <div class="guide margin-top"    style="top:19.53px;"></div>
+        <div class="guide margin-bottom" style="bottom:19.53px;"></div>
+        <div class="guide margin-left"   style="left:19.53px;"></div>
+        <div class="guide margin-right"  style="right:19.53px;"></div>
+
+      </div>
+      <div class="slide-title-label">Primera visita</div>
+    </div>
+
+    <div class="slide-wrapper" data-index="6">
+      <div class="slide-meta">
+        <span class="slide-num">Slide 7 / 7</span>
+        <span class="slide-dur">10 s · split</span>
+      </div>
+      <div class="slide" style="background:rgb(10,10,14);">
+
+        <!-- Fondo de vídeo (template centered) -->
+        
+
+        <!-- Overlay / panel split -->
+        
+        
+        <!-- Panel derecho: entra desde la derecha (60% del ancho) -->
+        <!-- Orden z: fondo oscuro (base) → vídeo (encima) → texto/logos (top) -->
+        <div class="split-panel" style="left:40.00%;width:60.00%;z-index:2;">
+          <video autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;"><source src="../assets/backgrounds/implante.mp4"></video>
+        </div>
+
+
+        <!-- Logo header -->
+        <img src="../assets/logo.png" alt="logo" style="position:absolute;left:50%;transform:translateX(-50%);top:15.63px;width:67.71px;height:auto;object-fit:contain;z-index:10;pointer-events:none;">
+
+        <!-- Logo footer -->
+        <img src="../assets/logofooter.png" alt="logo_footer" style="position:absolute;left:50%;transform:translateX(-50%);bottom:13.02px;width:54.69px;height:auto;object-fit:contain;z-index:10;pointer-events:none;">
+
+        <!-- Títulos (TV superior) -->
+        <div style="
+            position:absolute;
+            top:19.53px;
+            left:19.53px;
+            right:19.53px;
+            display:flex;
+            flex-direction:column;
+            align-items:flex-start;
+            z-index:5;">
+          <div class="txt title-txt" style="position:relative;transform:none;margin-top:91.15px;font-size:16.93px;font-family:'font-bold',system-ui,sans-serif;font-weight:700;line-height:1.25;color:rgb(255,255,255);letter-spacing:3.98px;text-shadow:none;width:100%;text-align:left;"></div><div class="txt title-txt" style="position:relative;transform:none;margin-top:9.11px;font-size:28.65px;font-family:'cinzel',system-ui,sans-serif;font-weight:400;line-height:1.25;color:rgb(255,255,255);letter-spacing:2.00px;text-shadow:none;width:100%;text-align:left;">TRANSPLANTE <br> CAPILAR</div><div class="txt title-txt" style="position:relative;transform:none;margin-top:6.51px;font-size:13.02px;font-family:'font-regular',system-ui,sans-serif;font-weight:400;line-height:1.25;color:rgb(255,255,255);letter-spacing:0.05px;text-shadow:none;width:100%;text-align:left;"></div>
+        </div>
+
+        <!-- Descripción (TV inferior — arriba) -->
+        <div class="txt desc-txt" style="
+            top:394.79px;
+            font-size:19.53px;
+            font-family:'font-regular',system-ui,sans-serif;
+            font-weight:400;
+            line-height:1.25;
+            color:rgb(255,255,255);
+            letter-spacing:0.07px;
+            text-shadow:none;
+            left:19.53px;
+            right:19.53px;
+            text-align:left;">
+          Dr. Cotignola
+        </div>
+
+        <!-- Precio (TV inferior — abajo; solo si hay texto) -->
+        
+
+        <!-- Indicadores de zona segura (toggle) -->
+        <div class="guide split-guide" style="top:281.25px;">
+          <span class="guide-label">unión pantallas · y=2160</span>
+        </div>
+        <div class="guide safe-band" style="top:244.79px;height:72.92px;"></div>
+        <div class="guide margin-top"    style="top:19.53px;"></div>
+        <div class="guide margin-bottom" style="bottom:19.53px;"></div>
+        <div class="guide margin-left"   style="left:19.53px;"></div>
+        <div class="guide margin-right"  style="right:19.53px;"></div>
+
+      </div>
+      <div class="slide-title-label">Split demo</div>
+    </div>
+  </div>
+
+  <!-- Lightbox de ampliación -->
+  <div id="lightbox" style="
+      display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);
+      z-index:999;align-items:center;justify-content:center;cursor:zoom-out;"
+    onclick="closeLightbox()">
+    <div id="lb-content" style="max-height:90vh;overflow-y:auto;padding:10px;">
+    </div>
+  </div>
+
+  <script>
+    let guidesOn = false;
+    function toggleGuides() {
+      guidesOn = !guidesOn;
+      document.body.classList.toggle('show-guides', guidesOn);
+      document.getElementById('btn-guides').classList.toggle('active', guidesOn);
+      document.getElementById('btn-guides').textContent = guidesOn ? 'Ocultar guías' : 'Mostrar guías';
+    }
+
+    let fullscreen = false;
+    function toggleFullscreen() {
+      fullscreen = !fullscreen;
+      const grid = document.getElementById('grid');
+      const btn  = document.getElementById('btn-fullscreen');
+      const slides = document.querySelectorAll('.slide');
+      const wrappers = document.querySelectorAll('.slide-wrapper');
+      const targetW = fullscreen ? 800 : 500;
+      const targetH = fullscreen ? 900 : 562;
+      slides.forEach(s => {
+        s.style.width  = targetW + 'px';
+        s.style.height = targetH + 'px';
+      });
+      document.querySelectorAll('.slide-meta,.slide-title-label').forEach(el => {
+        el.style.width = targetW + 'px';
+        el.style.maxWidth = targetW + 'px';
+      });
+      btn.textContent = fullscreen ? 'Vista normal' : 'Vista ampliada';
+      btn.classList.toggle('active', fullscreen);
+    }
+
+    function closeLightbox() {
+      document.getElementById('lightbox').style.display = 'none';
+    }
+    document.addEventListener('keydown', e => { if (e.key==='Escape') closeLightbox(); });
+
+    /* ── Exportar PDF: usa el diálogo de impresión del sistema ── */
+    function exportPDF() {
+      window.print();
+    }
+
+    /* ── Exportar JPG: html2canvas sobre el grid completo ── */
+    async function exportJPG() {
+      const btn = document.getElementById('btn-jpg');
+      if (typeof html2canvas === 'undefined') {
+        alert('La librería de captura no está disponible.
+Verifica tu conexión a internet y recarga la página.');
+        return;
+      }
+      btn.textContent = 'Capturando…';
+      btn.classList.add('active');
+      btn.disabled = true;
+      try {
+        const grid = document.getElementById('grid');
+        const canvas = await html2canvas(grid, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#0e0e0e',
+          logging: false,
+          imageTimeout: 0
+        });
+        let dataUrl;
+        try {
+          dataUrl = canvas.toDataURL('image/jpeg', 0.93);
+        } catch(secErr) {
+          alert('No se pudo exportar como JPG porque el navegador bloqueó el acceso
+a los recursos locales (vídeos/imágenes).
+
+Usa "Exportar PDF" en su lugar.');
+          return;
+        }
+        const link = document.createElement('a');
+        link.download = 'preview_slides.jpg';
+        link.href = dataUrl;
+        link.click();
+      } catch(err) {
+        alert('Error al capturar: ' + err.message);
+      } finally {
+        btn.textContent = 'Exportar JPG';
+        btn.classList.remove('active');
+        btn.disabled = false;
+      }
+    }
+  </script>
+
+</body>
+</html>
