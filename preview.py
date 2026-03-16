@@ -762,37 +762,38 @@ HTML_TEMPLATE = """\
     .desc-txt   {{ font-weight: 400; }}
     .price-txt  {{ font-weight: 900; }}
 
-    /* ── Guías (visibles solo con clase .show-guides en body) ── */
+    /* ── Guías ── */
     .guide {{ position: absolute; pointer-events: none; display: none; }}
-    body.show-guides .guide {{ display: block; }}
+    .guide.visible {{ display: block !important; }}
 
     .split-guide {{
-      left: 0; right: 0; height: 1px;
-      background: var(--red);
-      opacity: .8;
-      z-index: 20;
+      left: 0; right: 0; height: 2px;
+      background: #ff3b3b;
+      z-index: 30;
     }}
     .split-guide .guide-label {{
       position: absolute;
       right: 6px; top: 3px;
       font-size: 7px;
-      color: var(--red);
-      font-family: 'Montserrat', monospace;
+      color: #ff3b3b;
+      font-family: monospace;
       letter-spacing: .05em;
       text-transform: uppercase;
       white-space: nowrap;
+      background: rgba(0,0,0,.7);
+      padding: 0 3px;
     }}
     .safe-band {{
       left: 0; right: 0;
-      background: rgba(255,200,0,.07);
-      border-top: 1px dashed rgba(255,200,0,.35);
-      border-bottom: 1px dashed rgba(255,200,0,.35);
-      z-index: 19;
+      background: rgba(255,200,0,.22);
+      border-top: 2px dashed rgba(255,220,0,.9);
+      border-bottom: 2px dashed rgba(255,220,0,.9);
+      z-index: 29;
     }}
-    .margin-top    {{ left:0;right:0;height:1px;   background:rgba(0,200,255,.3); z-index:18; }}
-    .margin-bottom {{ left:0;right:0;height:1px;   background:rgba(0,200,255,.3); z-index:18; }}
-    .margin-left   {{ top:0;bottom:0;width:1px;    background:rgba(0,200,255,.3); z-index:18; }}
-    .margin-right  {{ top:0;bottom:0;width:1px;    background:rgba(0,200,255,.3); z-index:18; }}
+    .margin-top    {{ left:0;right:0;height:2px;   background:#00ddff; z-index:28; }}
+    .margin-bottom {{ left:0;right:0;height:2px;   background:#00ddff; z-index:28; }}
+    .margin-left   {{ top:0;bottom:0;width:2px;    background:#00ddff; z-index:28; }}
+    .margin-right  {{ top:0;bottom:0;width:2px;    background:#00ddff; z-index:28; }}
 
     /* ── Template SPLIT: panel derecho que entra desde la derecha ── */
     @media print {{
@@ -867,7 +868,17 @@ HTML_TEMPLATE = """\
     let guidesOn = false;
     function toggleGuides() {{
       guidesOn = !guidesOn;
-      document.body.classList.toggle('show-guides', guidesOn);
+
+      const guides = document.querySelectorAll('.guide');
+      guides.forEach(el => {{
+        el.style.setProperty('display', guidesOn ? 'block' : 'none', 'important');
+      }});
+
+      /* Outline visible en cada slide para confirmar que el toggle funciona */
+      document.querySelectorAll('.slide').forEach(s => {{
+        s.style.outline = guidesOn ? '3px solid #ff3b3b' : '';
+      }});
+
       document.getElementById('btn-guides').classList.toggle('active', guidesOn);
       document.getElementById('btn-guides').textContent = guidesOn ? 'Ocultar guías' : 'Mostrar guías';
     }}
@@ -907,7 +918,7 @@ HTML_TEMPLATE = """\
     async function exportJPG() {{
       const btn = document.getElementById('btn-jpg');
       if (typeof html2canvas === 'undefined') {{
-        alert('La librería de captura no está disponible.\nVerifica tu conexión a internet y recarga la página.');
+        alert('La librería de captura no está disponible.\\nVerifica tu conexión a internet y recarga la página.');
         return;
       }}
       btn.textContent = 'Capturando…';
@@ -927,7 +938,7 @@ HTML_TEMPLATE = """\
         try {{
           dataUrl = canvas.toDataURL('image/jpeg', 0.93);
         }} catch(secErr) {{
-          alert('No se pudo exportar como JPG porque el navegador bloqueó el acceso\na los recursos locales (vídeos/imágenes).\n\nUsa "Exportar PDF" en su lugar.');
+          alert('No se pudo exportar como JPG porque el navegador bloqueó el acceso a los recursos locales.\\n\\nUsa "Exportar PDF" en su lugar.');
           return;
         }}
         const link = document.createElement('a');

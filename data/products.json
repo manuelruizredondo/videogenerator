@@ -68,6 +68,18 @@
   },
 
   {
+    "producto": "Toxina Botulínica",
+    "duracion": 12,
+    "titulo_1": "ANIVERSARIO · 10% DTO.",
+    "titulo_2": "Toxina Botulínica",
+    "titulo_3": "Suaviza arrugas de expresión · Resultado natural",
+    "descripcion": "Tratamiento con toxina botulínica para reducir\narrugas de expresión. Promo válida 30 días.",
+    "precio_antes": "290 €",
+    "precio": "261 €",
+    "imagen": "assets/backgrounds/video.mp4"
+  },
+
+  {
     "producto": "Split demo",
     "duracion": 10,
     "template": "split",

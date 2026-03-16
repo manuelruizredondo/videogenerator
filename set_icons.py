@@ -61,6 +61,15 @@ ICONS = [
         "line1":        "SUBIR",
         "line2":        "",
     },
+    {
+        "file":         "INSTAGRAM.command",
+        "bg":           (40, 15, 40),
+        "accent":       (225, 48, 108),
+        "symbol":       "◈",
+        "symbol_scale": 0.32,
+        "line1":        "INSTA",
+        "line2":        "GRAM",
+    },
 ]
 
 SIZE = 512   # Tamaño del icono en px

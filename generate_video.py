@@ -886,9 +886,10 @@ def render_frame(
     p_cfg      = cfg["price"]
 
     # ── 1. Canvas base + fondo (depende del template) ────────────────────────
-    bg_appear_at   = cfg.get("bg_appear_at",  0.0)
+    bg_appear_at   = cfg.get("bg_appear_at",      0.0)
+    bg_fade_in_dur = cfg.get("bg_fade_in_duration", 0.8)
     intro_r, intro_g, intro_b = cfg.get("intro_bg_color", [10, 10, 14])
-    bg_alpha = calc_alpha(t, bg_appear_at, 0.8, fo_start, fade_out)
+    bg_alpha = calc_alpha(t, bg_appear_at, bg_fade_in_dur, fo_start, fade_out)
 
     canvas   = Image.new("RGBA", (CANVAS_W, CANVAS_H), (intro_r, intro_g, intro_b, 255))
     template = precomp.get("template", "centered")
