@@ -412,6 +412,7 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
     pb_fs       = eff_pb_size * SCALE if pb_cfg else 0
     pb_color    = rgb(pb_cfg["color"]) if pb_cfg else "rgb(170,170,170)"
     pb_strike   = rgb(pb_cfg.get("strikethrough_color", [220, 80, 80])) if pb_cfg else "rgb(220,80,80)"
+    pb_strike_w = (pb_cfg["strikethrough_width"] * SCALE) if (pb_cfg and "strikethrough_width" in pb_cfg) else max(2, round(pb_fs / 12))
     pb_gap      = (pb_cfg.get("gap", 100) * SCALE) if pb_cfg else 0
     pb_ls       = (
         parse_px(pb_cfg.get("letter_spacing", 0)) * SCALE
@@ -583,7 +584,7 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
             f"color:{pb_color};"
             "text-decoration:line-through;"
             f"text-decoration-color:{pb_strike};"
-            f"text-decoration-thickness:{max(2, round(pb_fs/12)):.0f}px;"
+            f"text-decoration-thickness:{pb_strike_w:.1f}px;"
             f"letter-spacing:{pb_ls:.2f}px;"
             f"{_shadow_css(pb_shadow, strong=True)}"
             f"white-space:nowrap;{price_before_badge_css}'>"

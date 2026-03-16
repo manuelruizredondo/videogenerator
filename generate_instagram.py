@@ -76,6 +76,8 @@ def scale_config(cfg: dict) -> dict:
             c["price_before"]["gap"] = sc(cfg["price_before"]["gap"])
         if "letter_spacing" in cfg.get("price_before", {}):
             c["price_before"]["letter_spacing"] = sc(cfg["price_before"]["letter_spacing"])
+        if "strikethrough_width" in cfg.get("price_before", {}):
+            c["price_before"]["strikethrough_width"] = max(1, sc(cfg["price_before"]["strikethrough_width"]))
 
     # Logos — se escalan con LOGO_SCALE para que sean visibles en portrait
     def scl(v): return max(1, round(v * SCALE_W * LOGO_SCALE))

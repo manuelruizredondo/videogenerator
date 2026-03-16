@@ -545,6 +545,7 @@ def draw_prices(
     shadow: bool = True,
     shadow_before: bool = True,
     x_left: Optional[int] = None,
+    strike_thick: Optional[int] = None,
 ) -> None:
     """
     Dibuja el precio actual y, si before_text no está vacío, el precio anterior
@@ -617,7 +618,8 @@ def draw_prices(
                    (*before_color, int_a), letter_spacing_before)
         # Tachado centrado en el centro visual del glifo
         strike_y     = y_b + (bb_b[1] + bb_b[3]) // 2
-        strike_thick = max(5, font_before.size // 12)
+        if strike_thick is None:
+            strike_thick = max(5, font_before.size // 12)
         draw.rectangle(
             [x_b, strike_y - strike_thick // 2,
              x_b + w_b, strike_y + strike_thick // 2],
@@ -825,6 +827,7 @@ def precompute_slide(product: dict, cfg: dict) -> dict:
     pb_render = {
         "color":          tuple(pb_cfg.get("color",              [170, 170, 170])) if pb_cfg else (170, 170, 170),
         "strike_color":   tuple(pb_cfg.get("strikethrough_color", [220, 80, 80]))  if pb_cfg else (220, 80, 80),
+        "strike_thick":   int(pb_cfg["strikethrough_width"]) if (pb_cfg and "strikethrough_width" in pb_cfg) else None,
         "letter_spacing": _parse_px(pb_cfg.get("letter_spacing", 0)) if pb_cfg else 0,
         "shadow":         bool(pb_cfg.get("shadow", True)) if pb_cfg else True,
         "gap":            int(pb_cfg.get("gap", 100)) if pb_cfg else 100,
@@ -1063,6 +1066,7 @@ def render_frame(
         shadow                = pr["shadow"],
         shadow_before         = pbr["shadow"] if pbr else True,
         x_left                = x_left,
+        strike_thick          = pbr["strike_thick"] if pbr else None,
     )
 
     # ── 7. Logos (globales: entran una vez, se mantienen y salen al final) ────
