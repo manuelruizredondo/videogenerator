@@ -5,7 +5,7 @@ Muestra el layout, tipografía, colores y zonas seguras a escala.
 
 Uso:
     python preview.py
-    python preview.py -d data/products.json -c config.json -o output/preview.html
+    python preview.py -d data/products.json -c config.json -o output/index.html
 """
 
 import argparse
@@ -601,6 +601,7 @@ HTML_TEMPLATE = """\
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Preview — Escaparate Dual 4K</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
     {font_faces}
     *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
@@ -768,6 +769,29 @@ HTML_TEMPLATE = """\
     .margin-right  {{ top:0;bottom:0;width:1px;    background:rgba(0,200,255,.3); z-index:18; }}
 
     /* ── Template SPLIT: panel derecho que entra desde la derecha ── */
+    @media print {{
+      * {{ -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }}
+      body {{ background: #000 !important; margin: 0; padding: 0; }}
+      .toolbar, .slide-meta, .slide-title-label {{ display: none !important; }}
+      .slides-grid {{ display: block !important; padding: 0 !important; gap: 0 !important; }}
+      .slide-wrapper {{
+        page-break-after: always;
+        break-after: page;
+        display: flex !important;
+        justify-content: center;
+        align-items: center;
+        width: 100vw;
+        height: 100vh;
+        margin: 0; padding: 0;
+      }}
+      .slide {{
+        width: 100vw !important;
+        height: 100vh !important;
+        border-radius: 0 !important;
+        position: relative !important;
+      }}
+    }}
+
     @keyframes slideInRight {{
       from {{ transform: translateX(100%); }}
       to   {{ transform: translateX(0);    }}
@@ -796,6 +820,8 @@ HTML_TEMPLATE = """\
   <div class="toolbar">
     <button class="btn" id="btn-guides" onclick="toggleGuides()">Mostrar guías</button>
     <button class="btn" id="btn-fullscreen" onclick="toggleFullscreen()">Vista ampliada</button>
+    <button class="btn" id="btn-jpg" onclick="exportJPG()">Exportar JPG</button>
+    <button class="btn" id="btn-pdf" onclick="exportPDF()">Exportar PDF</button>
   </div>
 
   <div class="slides-grid" id="grid">
@@ -845,6 +871,51 @@ HTML_TEMPLATE = """\
       document.getElementById('lightbox').style.display = 'none';
     }}
     document.addEventListener('keydown', e => {{ if (e.key==='Escape') closeLightbox(); }});
+
+    /* ── Exportar PDF: usa el diálogo de impresión del sistema ── */
+    function exportPDF() {{
+      window.print();
+    }}
+
+    /* ── Exportar JPG: html2canvas sobre el grid completo ── */
+    async function exportJPG() {{
+      const btn = document.getElementById('btn-jpg');
+      if (typeof html2canvas === 'undefined') {{
+        alert('La librería de captura no está disponible.\nVerifica tu conexión a internet y recarga la página.');
+        return;
+      }}
+      btn.textContent = 'Capturando…';
+      btn.classList.add('active');
+      btn.disabled = true;
+      try {{
+        const grid = document.getElementById('grid');
+        const canvas = await html2canvas(grid, {{
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#0e0e0e',
+          logging: false,
+          imageTimeout: 0
+        }});
+        let dataUrl;
+        try {{
+          dataUrl = canvas.toDataURL('image/jpeg', 0.93);
+        }} catch(secErr) {{
+          alert('No se pudo exportar como JPG porque el navegador bloqueó el acceso\na los recursos locales (vídeos/imágenes).\n\nUsa "Exportar PDF" en su lugar.');
+          return;
+        }}
+        const link = document.createElement('a');
+        link.download = 'preview_slides.jpg';
+        link.href = dataUrl;
+        link.click();
+      }} catch(err) {{
+        alert('Error al capturar: ' + err.message);
+      }} finally {{
+        btn.textContent = 'Exportar JPG';
+        btn.classList.remove('active');
+        btn.disabled = false;
+      }}
+    }}
   </script>
 
 </body>
@@ -943,7 +1014,7 @@ def main() -> None:
     )
     parser.add_argument("-d", "--data",   default="data/products.json")
     parser.add_argument("-c", "--config", default="config.json")
-    parser.add_argument("-o", "--output", default="output/preview.html")
+    parser.add_argument("-o", "--output", default="output/index.html")
     args = parser.parse_args()
 
     cfg  = load_json(args.config)
