@@ -138,15 +138,27 @@ class VideoBackground:
     """
     Decodifica un vídeo de fondo frame a frame vía FFmpeg pipe.
     Usa -stream_loop -1 para repetir el vídeo en bucle automáticamente.
+    Acepta width/height opcionales para cargar a una resolución distinta del
+    canvas completo (e.g. panel derecho en template 'split').
     Consumo de memoria: O(1) — solo un frame en RAM en cada instante.
     """
 
-    def __init__(self, path: Path, fps: int) -> None:
-        self._frame_bytes = CANVAS_W * CANVAS_H * 3
+    def __init__(
+        self,
+        path: Path,
+        fps: int,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+    ) -> None:
+        w = width  if width  is not None else CANVAS_W
+        h = height if height is not None else CANVAS_H
+        self._w           = w
+        self._h           = h
+        self._frame_bytes = w * h * 3
         vf = (
-            f"scale={CANVAS_W}:{CANVAS_H}"
+            f"scale={w}:{h}"
             f":force_original_aspect_ratio=increase,"
-            f"crop={CANVAS_W}:{CANVAS_H}"
+            f"crop={w}:{h}"
         )
         self._proc = subprocess.Popen(
             [
@@ -171,8 +183,8 @@ class VideoBackground:
             if err:
                 last = "\n".join(err.splitlines()[-5:])
                 print(f"\n  ⚠️  Advertencia leyendo vídeo de fondo: {last}", file=sys.stderr)
-            return np.zeros((CANVAS_H, CANVAS_W, 3), dtype=np.uint8)
-        return np.frombuffer(data, dtype=np.uint8).reshape(CANVAS_H, CANVAS_W, 3).copy()
+            return np.zeros((self._h, self._w, 3), dtype=np.uint8)
+        return np.frombuffer(data, dtype=np.uint8).reshape(self._h, self._w, 3).copy()
 
     def close(self) -> None:
         try:
@@ -183,18 +195,23 @@ class VideoBackground:
 
 
 def load_background_source(
-    path: Optional[str], fps: int
+    path: Optional[str],
+    fps: int,
+    width: Optional[int] = None,
+    height: Optional[int] = None,
 ) -> "np.ndarray | VideoBackground":
     """
     Imagen  → devuelve un ndarray estático (se reutiliza en todos los frames).
     Vídeo   → devuelve VideoBackground (un frame nuevo en cada llamada a get_next_frame).
+    width/height permiten cargar a una resolución distinta del canvas completo
+    (e.g. panel derecho en template 'split': CANVAS_W//2 × CANVAS_H).
     """
     if is_video_path(path):
         resolved = resolve_path(path)
         if resolved.exists():
-            return VideoBackground(resolved, fps)
+            return VideoBackground(resolved, fps, width, height)
         print(f"  ⚠  Vídeo no encontrado: {path} — usando degradado.", file=sys.stderr)
-    return load_background(path)
+    return load_background(path, width, height)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -471,8 +488,14 @@ def draw_text_centered(
     shadow_alpha_factor: float = 0.65,
     letter_spacing: int = 0,
     shadow: bool = True,
+    x_left: Optional[int] = None,
 ) -> None:
-    """Dibuja un bloque de texto centrado en (cx, cy) con sombra opcional y alpha."""
+    """
+    Dibuja un bloque de texto con sombra opcional y alpha.
+    Por defecto centra cada línea en cx.
+    Si x_left se especifica, alinea todas las líneas a la izquierda desde esa x
+    (usado en template 'split').
+    """
     if alpha <= 0.01:
         return
 
@@ -490,7 +513,7 @@ def draw_text_centered(
 
     for i, line in enumerate(lines):
         lw = _measure_line_w(line, font, letter_spacing)
-        x  = cx - lw // 2
+        x  = x_left if x_left is not None else (cx - lw // 2)
         y  = int(y_start + i * line_h * line_spacing)
         if shadow:
             _draw_line(draw, x + shadow_off, y + shadow_off, line, font,
@@ -521,6 +544,7 @@ def draw_prices(
     price_before_badge: Optional[dict] = None,
     shadow: bool = True,
     shadow_before: bool = True,
+    x_left: Optional[int] = None,
 ) -> None:
     """
     Dibuja el precio actual y, si before_text no está vacío, el precio anterior
@@ -530,7 +554,10 @@ def draw_prices(
     if alpha <= 0.01:
         return
 
+    # Si no hay texto que mostrar, no dibujar nada (ni badge)
     show_before = bool(before_text and font_before)
+    if not price_text and not show_before:
+        return
 
     # ── Medir textos ──────────────────────────────────────────────────────────
     w_p    = _measure_line_w(price_text, font_price, letter_spacing)
@@ -546,7 +573,7 @@ def draw_prices(
         w_b = h_b = 0
         total_w = w_p
 
-    x_start = cx - total_w // 2
+    x_start = x_left if x_left is not None else (cx - total_w // 2)
 
     # ── Capa RGBA para composición con alpha ──────────────────────────────────
     layer     = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
@@ -625,38 +652,45 @@ def resolve_path(path: str) -> Path:
     return PROJECT_ROOT / p
 
 
-def load_background(path: Optional[str]) -> np.ndarray:
+def load_background(
+    path: Optional[str],
+    width: Optional[int] = None,
+    height: Optional[int] = None,
+) -> np.ndarray:
     """
-    Carga una imagen de fondo y la escala al tamaño del canvas (cover).
+    Carga una imagen de fondo y la escala (cover) a las dimensiones indicadas.
+    Por defecto usa el canvas completo (CANVAS_W × CANVAS_H).
     Si no hay imagen, genera un degradado oscuro por defecto.
     Devuelve un array numpy uint8 RGB.
     """
+    w = width  if width  is not None else CANVAS_W
+    h = height if height is not None else CANVAS_H
     resolved = resolve_path(path) if path else None
     if resolved and resolved.exists():
         img = Image.open(resolved).convert("RGB")
-        # Escala "cover": rellenar todo el canvas manteniendo aspecto
+        # Escala "cover": rellenar todo el área manteniendo aspecto
         img_ratio    = img.width / img.height
-        canvas_ratio = CANVAS_W / CANVAS_H
+        canvas_ratio = w / h
         if img_ratio > canvas_ratio:
-            new_h = CANVAS_H
-            new_w = int(CANVAS_H * img_ratio)
+            new_h = h
+            new_w = int(h * img_ratio)
         else:
-            new_w = CANVAS_W
-            new_h = int(CANVAS_W / img_ratio)
+            new_w = w
+            new_h = int(w / img_ratio)
         img = img.resize((new_w, new_h), Image.LANCZOS)
-        x = (new_w - CANVAS_W) // 2
-        y = (new_h - CANVAS_H) // 2
-        img = img.crop((x, y, x + CANVAS_W, y + CANVAS_H))
+        x = (new_w - w) // 2
+        y = (new_h - h) // 2
+        img = img.crop((x, y, x + w, y + h))
     else:
         if path:
             print(f"  ⚠  Imagen no encontrada: {path} — usando degradado.", file=sys.stderr)
         # Degradado oscuro azul/gris de arriba a abajo
-        arr = np.zeros((CANVAS_H, CANVAS_W, 3), dtype=np.uint8)
-        for row in range(CANVAS_H):
-            t = row / CANVAS_H
-            arr[row, :, 0] = int(15 + 20 * t)     # R
-            arr[row, :, 1] = int(15 + 15 * t)     # G
-            arr[row, :, 2] = int(60 + 40 * (1 - t))  # B
+        arr = np.zeros((h, w, 3), dtype=np.uint8)
+        for row in range(h):
+            t = row / h
+            arr[row, :, 0] = int(15 + 20 * t)
+            arr[row, :, 1] = int(15 + 15 * t)
+            arr[row, :, 2] = int(60 + 40 * (1 - t))
         return arr
     return np.array(img)
 
@@ -707,9 +741,28 @@ def precompute_slide(product: dict, cfg: dict) -> dict:
     """
     Calcula una sola vez (por slide) las fuentes y el texto partido en líneas.
     El font_size de cada elemento puede ser sobreescrito por el producto.
+    Soporta templates 'centered' (por defecto) y 'split' (panel izquierdo de texto
+    + panel derecho de vídeo que entra desde la derecha).
     """
-    safe_m = cfg["safe_margin"]
-    text_w = CANVAS_W - 2 * safe_m
+    safe_m   = cfg["safe_margin"]
+    template = product.get("template", "centered")
+
+    if template == "split":
+        # split_ratio: fracción del canvas donde empieza el panel de vídeo.
+        # 0.5 → panel desde el 50% · 0.4 → panel desde el 40% …
+        # El TEXTO usa el ancho completo del canvas (igual que centered) pero
+        # alineado a la izquierda y con z-order por encima del panel de vídeo.
+        split_ratio = float(product.get("split_ratio", cfg.get("split_ratio", 0.5)))
+        split_x     = int(CANVAS_W * split_ratio)   # x donde empieza el panel de vídeo
+        text_w      = CANVAS_W - 2 * safe_m         # texto usa todo el ancho disponible
+        cx          = CANVAS_W // 2                 # cx no se usa (texto es left-aligned)
+        x_left      = safe_m                        # alineación izquierda desde margen
+    else:
+        split_ratio = 0.5
+        split_x     = CANVAS_W // 2
+        text_w      = CANVAS_W - 2 * safe_m
+        cx          = CANVAS_W // 2
+        x_left      = None
 
     titles_cfg = cfg.get("titles") or [cfg.get("title", {})]
     d_cfg      = cfg["description"]
@@ -793,6 +846,11 @@ def precompute_slide(product: dict, cfg: dict) -> dict:
         "desc_render":        desc_render,
         "price_render":       price_render,
         "pb_render":          pb_render,
+        # Layout
+        "template":           template,
+        "cx":                 cx,
+        "x_left":             x_left,
+        "split_x":            split_x,   # x donde empieza el panel de vídeo
     }
 
 
@@ -827,48 +885,80 @@ def render_frame(
     d_cfg      = cfg["description"]
     p_cfg      = cfg["price"]
 
-    # ── 1. Fondo (fade-in desde bg_appear_at con 0.8s de duración) ───────────
+    # ── 1. Canvas base + fondo (depende del template) ────────────────────────
     bg_appear_at   = cfg.get("bg_appear_at",  0.0)
     intro_r, intro_g, intro_b = cfg.get("intro_bg_color", [10, 10, 14])
     bg_alpha = calc_alpha(t, bg_appear_at, 0.8, fo_start, fade_out)
 
-    canvas = Image.new("RGBA", (CANVAS_W, CANVAS_H), (intro_r, intro_g, intro_b, 255))
+    canvas   = Image.new("RGBA", (CANVAS_W, CANVAS_H), (intro_r, intro_g, intro_b, 255))
+    template = precomp.get("template", "centered")
 
-    if bg_alpha > 0.01:
-        # ── Ken Burns: zoom lento desde 100 % hasta (100 + bg_zoom) % ─────────
-        bg_zoom = cfg.get("bg_zoom", 0.0)
-        if bg_zoom > 0.0:
-            t_norm  = min(t / slide_dur, 1.0)
-            zoom    = 1.0 + bg_zoom * t_norm
-            new_w   = int(CANVAS_W * zoom)
-            new_h   = int(CANVAS_H * zoom)
-            zoomed  = Image.fromarray(bg_arr, "RGB").resize(
-                (new_w, new_h), Image.BILINEAR
-            )
-            ox = (new_w - CANVAS_W) // 2
-            oy = (new_h - CANVAS_H) // 2
-            bg_img = zoomed.crop((ox, oy, ox + CANVAS_W, oy + CANVAS_H)).convert("RGBA")
-        else:
-            bg_img = Image.fromarray(bg_arr, "RGB").convert("RGBA")
+    ov_appear  = cfg.get("overlay_appear_at",    0.6)
+    ov_fade_in = cfg.get("overlay_fade_duration", 1.2)
+    ov_alpha   = calc_alpha(t, ov_appear, ov_fade_in, fo_start, fade_out)
 
-        bg_data = np.array(bg_img)
-        bg_data[:, :, 3] = int(bg_alpha * 255)
-        canvas.alpha_composite(Image.fromarray(bg_data, "RGBA"))
+    if template == "split":
+        # ── TEMPLATE SPLIT ────────────────────────────────────────────────────
+        # split_x: x donde empieza la zona de vídeo (leído del precomp)
+        # El panel ocupa [split_x, CANVAS_W] en su posición final.
+        # Entra desde la derecha con animación ease-out cúbico.
+        split_x         = precomp.get("split_x", CANVAS_W // 2)
+        video_panel_w   = CANVAS_W - split_x          # ancho del panel de vídeo
+        panel_slide_dur = float(cfg.get("panel_slide_duration", 0.7))
+        t_since         = max(0.0, t - bg_appear_at)
+        p_raw           = min(1.0, t_since / panel_slide_dur) if panel_slide_dur > 0 else 1.0
+        progress        = 1.0 - (1.0 - p_raw) ** 3   # ease-out cúbico
 
-        # ── 2. Overlay: aparece DESPUÉS del fondo para dar efecto de oscurecimiento
-        ov_appear   = cfg.get("overlay_appear_at",    0.6)
-        ov_fade_in  = cfg.get("overlay_fade_duration", 1.2)
-        ov_alpha    = calc_alpha(t, ov_appear, ov_fade_in, fo_start, fade_out)
+        # x_panel: CANVAS_W (fuera) → split_x (posición final)
+        x_panel = split_x + int(video_panel_w * (1.0 - progress))
 
-        if ov_alpha > 0.01:
-            ov_arr = np.array(overlay)
-            ov_arr[:, :, 3] = (ov_arr[:, :, 3].astype(float) * ov_alpha).astype(np.uint8)
-            canvas.alpha_composite(Image.fromarray(ov_arr, "RGBA"))
+        if bg_alpha > 0.01:
+            int_bg_a = int(bg_alpha * 255)
+            # bg_arr ya tiene dimensiones (CANVAS_H, video_panel_w, 3) —
+            # cargado exactamente al tamaño del panel (ocupa todo el alto).
+            paste_w = min(video_panel_w, CANVAS_W - x_panel)
+            # El panel de vídeo se pinta ENCIMA del canvas oscuro (sin overlay).
+            # Orden de profundidad: fondo oscuro → vídeo → texto/logos.
+            if paste_w > 0:
+                rgba      = np.empty((CANVAS_H, paste_w, 4), dtype=np.uint8)
+                rgba[:, :, :3] = bg_arr[:, :paste_w]
+                rgba[:, :, 3]  = int_bg_a
+                canvas.alpha_composite(Image.fromarray(rgba, "RGBA"), dest=(x_panel, 0))
 
-        # ── 3. Viñeta ─────────────────────────────────────────────────────────
-        vig_arr = np.array(vignette)
-        vig_arr[:, :, 3] = (vig_arr[:, :, 3].astype(float) * bg_alpha).astype(np.uint8)
-        canvas.alpha_composite(Image.fromarray(vig_arr, "RGBA"))
+
+    else:
+        # ── TEMPLATE CENTERED (lógica original) ───────────────────────────────
+        if bg_alpha > 0.01:
+            # ── Ken Burns: zoom lento desde 100 % hasta (100 + bg_zoom) % ─────
+            bg_zoom = cfg.get("bg_zoom", 0.0)
+            if bg_zoom > 0.0:
+                t_norm  = min(t / slide_dur, 1.0)
+                zoom    = 1.0 + bg_zoom * t_norm
+                new_w   = int(CANVAS_W * zoom)
+                new_h   = int(CANVAS_H * zoom)
+                zoomed  = Image.fromarray(bg_arr, "RGB").resize(
+                    (new_w, new_h), Image.BILINEAR
+                )
+                ox = (new_w - CANVAS_W) // 2
+                oy = (new_h - CANVAS_H) // 2
+                bg_img = zoomed.crop((ox, oy, ox + CANVAS_W, oy + CANVAS_H)).convert("RGBA")
+            else:
+                bg_img = Image.fromarray(bg_arr, "RGB").convert("RGBA")
+
+            bg_data = np.array(bg_img)
+            bg_data[:, :, 3] = int(bg_alpha * 255)
+            canvas.alpha_composite(Image.fromarray(bg_data, "RGBA"))
+
+            # ── 2. Overlay ────────────────────────────────────────────────────
+            if ov_alpha > 0.01:
+                ov_arr = np.array(overlay)
+                ov_arr[:, :, 3] = (ov_arr[:, :, 3].astype(float) * ov_alpha).astype(np.uint8)
+                canvas.alpha_composite(Image.fromarray(ov_arr, "RGBA"))
+
+            # ── 3. Viñeta ─────────────────────────────────────────────────────
+            vig_arr = np.array(vignette)
+            vig_arr[:, :, 3] = (vig_arr[:, :, 3].astype(float) * bg_alpha).astype(np.uint8)
+            canvas.alpha_composite(Image.fromarray(vig_arr, "RGBA"))
 
     # ── Centros verticales de cada zona de texto ──────────────────────────────
     #   TV superior  : y ∈ [safe_m, TV_SPLIT - split_safe]
@@ -914,7 +1004,8 @@ def render_frame(
     # Precio: 68 % desde arriba de la zona inferior
     price_cy = tv_bottom_top + int(tv_bottom_span * 0.68)
 
-    cx = CANVAS_W // 2
+    cx     = precomp.get("cx",    CANVAS_W // 2)
+    x_left = precomp.get("x_left", None)
 
     # ── 4. Títulos (TV superior) ───────────────────────────────────────────────
     for i, (tr, lines, font, cy) in enumerate(
@@ -929,6 +1020,7 @@ def render_frame(
             line_spacing=tr["line_spacing"],
             letter_spacing=tr["letter_spacing"],
             shadow=tr["shadow"],
+            x_left=x_left,
         )
 
     # ── 5. Descripción ─────────────────────────────────────────────────────────
@@ -942,6 +1034,7 @@ def render_frame(
         line_spacing=dr["line_spacing"],
         letter_spacing=dr["letter_spacing"],
         shadow=dr["shadow"],
+        x_left=x_left,
     )
 
     # ── 6. Precio (con tachado opcional) ──────────────────────────────────────
@@ -968,6 +1061,7 @@ def render_frame(
         price_before_badge    = pbr["badge"] if pbr else None,
         shadow                = pr["shadow"],
         shadow_before         = pbr["shadow"] if pbr else True,
+        x_left                = x_left,
     )
 
     # ── 7. Logos (globales: entran una vez, se mantienen y salen al final) ────
@@ -1085,7 +1179,19 @@ def generate_video(products: list[dict], cfg: dict, output_path: str) -> None:
             _name        = product.get("producto") or product.get("titulo_1") or f"Slide {idx + 1}"
             label        = f"({idx + 1}/{n}) {_name}"
 
-            bg_source = load_background_source(product.get("imagen") or product.get("fondo"), fps)
+            # Para el template 'split' cargamos el fondo exactamente al tamaño del
+            # panel de vídeo (video_panel_w × CANVAS_H) para que ocupe todo el alto
+            # sin ser un recorte del canvas completo.
+            _template    = product.get("template", "centered")
+            if _template == "split":
+                _split_ratio = float(product.get("split_ratio", cfg.get("split_ratio", 0.5)))
+                _split_x     = int(CANVAS_W * _split_ratio)
+                _bg_w        = CANVAS_W - _split_x   # ancho del panel de vídeo
+            else:
+                _bg_w = CANVAS_W
+            bg_source = load_background_source(
+                product.get("imagen") or product.get("fondo"), fps, _bg_w, CANVAS_H
+            )
             is_video  = isinstance(bg_source, VideoBackground)
             precomp   = precompute_slide(product, cfg)
 

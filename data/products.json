@@ -1,6 +1,7 @@
 [
   {
     "producto": "Bienvenida",
+    "duracion": 10,
     "titulo_1": "BIENVENIDO",
     "titulo_2": "Centre Mèdic Basté",
     "titulo_3": "Medicina Estética · Odontología · Micropigmentación",
@@ -9,9 +10,9 @@
     "imagen": "assets/backgrounds/video.mp4"
   },
 
-
   {
     "producto": "Aniversario 3 años",
+    "duracion": 12,
     "titulo_1": "¡ESTAMOS DE ANIVERSARIO!\n 3 AÑOS CONTIGO",
     "titulo_2": "24 DE ABRIL\n PUERTAS ABIERTAS",
     "titulo_3": "Medicina Estética y Micropigmentación",
@@ -19,7 +20,10 @@
     "precio": "Cóctel de 15h a 20h",
     "imagen": "assets/backgrounds/party.mp4"
   },
+
   {
+    "producto": "Micropigmentación",
+    "duracion": 10,
     "titulo_1": "MICROPIGMENTACIÓN",
     "titulo_2": "Cejas perfectas",
     "titulo_3": "Técnica pelo a pelo · Hasta 2 años",
@@ -29,8 +33,9 @@
     "imagen": "assets/backgrounds/cejas.mp4"
   },
 
-
   {
+    "producto": "All-on-4",
+    "duracion": 10,
     "titulo_1": "ALL-ON-4",
     "titulo_2": "Boca completa fija",
     "titulo_3": "4 implantes · Sal con dientes ese mismo día",
@@ -40,6 +45,8 @@
   },
 
   {
+    "producto": "Higiene dental",
+    "duracion": 10,
     "titulo_1": "HIGIENE DENTAL",
     "titulo_2": "Tecnología Airflow",
     "titulo_3": "Blanqueamiento visible · 1 sesión",
@@ -48,12 +55,28 @@
     "precio": "Desde 90 €",
     "imagen": "assets/backgrounds/airflow.mp4"
   },
+
   {
+    "producto": "Primera visita",
+    "duracion": 10,
     "titulo_1": "PRIMERA VISITA",
     "titulo_2": "Diagnóstico completo",
     "titulo_3": "Sin compromiso · 100% gratuita",
     "descripcion": "Diagnóstico completo sin compromiso. Te explicamos el tratamiento ideal para ti con total transparencia.",
     "precio": "GRATIS",
     "imagen": "assets/backgrounds/ortodoncia.jpg"
+  },
+
+  {
+    "producto": "Split demo",
+    "duracion": 10,
+    "template": "split",
+    "split_ratio": 0.4,
+    "titulo_1": "",
+    "titulo_2": "TRANSPLANTE \n CAPILAR",
+    "titulo_3": "",
+    "descripcion": "Dr. Cotignola",
+    "precio": "",
+    "imagen": "assets/backgrounds/implante.mp4"
   }
 ]

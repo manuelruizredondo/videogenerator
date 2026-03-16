@@ -243,6 +243,19 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
     _default_dur = _last_t + cfg.get("hold_duration", 2.0) + cfg["fade_out_duration"]
     duration     = float(product.get("duracion", _default_dur))
 
+    # Template del slide
+    template = product.get("template", "centered")
+    is_split  = template == "split"
+
+    # split_ratio: fracción del canvas para el texto (0.5 = 50/50, 0.4 = 40/60…)
+    split_ratio   = float(product.get("split_ratio", cfg.get("split_ratio", 0.5))) if is_split else 0.5
+    split_pct     = split_ratio * 100          # CSS: % del slide para el texto
+    video_pct     = (1.0 - split_ratio) * 100  # CSS: % del slide para el vídeo
+
+    # Color de fondo de intro (usado como bg del panel izquierdo en split)
+    intro_bg = cfg.get("intro_bg_color", [10, 10, 14])
+    intro_bg_css = f"rgb({intro_bg[0]},{intro_bg[1]},{intro_bg[2]})"
+
     # Posiciones Y (misma lógica que generate_video.py)
     tv_bottom_top    = TV_SPLIT + split_safe + safe_m
     tv_bottom_bottom = CANVAS_H - safe_m
@@ -251,34 +264,54 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
     price_cy         = tv_bottom_top + int(tv_bottom_span * 0.68)
 
     # Fondo (imagen o vídeo)
-    bg_path    = product.get("imagen") or product.get("fondo", "")
+    bg_path     = product.get("imagen") or product.get("fondo", "")
     bg_is_video = is_video_path(bg_path)
-    bg_url     = image_url(bg_path, output_path) if bg_path else ""
+    bg_url      = image_url(bg_path, output_path) if bg_path else ""
 
-    if bg_is_video and bg_url:
-        # Fondo de vídeo: se usará un <video> absoluto, el div base va oscuro
-        bg_style   = "background:#000;"
-        bg_video_html = (
-            f'<video autoplay muted loop playsinline style="'
-            f'position:absolute;inset:0;width:100%;height:100%;'
-            f'object-fit:cover;z-index:0;">'
-            f'<source src="{bg_url}"></video>'
-        )
-    elif bg_url:
-        bg_style      = (
-            f"background-image:url('{bg_url}');"
-            f"background-size:cover;background-position:center;"
-        )
-        bg_video_html = ""
+    # Para split: el fondo va en el panel derecho; el div base tiene el color de intro
+    if is_split:
+        base_bg_style = f"background:{intro_bg_css};"
+        if bg_is_video and bg_url:
+            panel_media_html = (
+                f'<video autoplay muted loop playsinline style="'
+                f'width:100%;height:100%;object-fit:cover;">'
+                f'<source src="{bg_url}"></video>'
+            )
+        elif bg_url:
+            panel_media_html = (
+                f'<img src="{bg_url}" style="'
+                f'width:100%;height:100%;object-fit:cover;">'
+            )
+        else:
+            panel_media_html = f'<div style="width:100%;height:100%;background:{intro_bg_css};"></div>'
+        bg_video_html = ""  # no se usa en split (va en el panel)
     else:
-        bg_style      = "background:linear-gradient(175deg,#0d1b3e 0%,#0a2744 45%,#071830 100%);"
-        bg_video_html = ""
+        base_bg_style = ""
+        panel_media_html = ""
+        if bg_is_video and bg_url:
+            bg_style = "background:#000;"
+            bg_video_html = (
+                f'<video autoplay muted loop playsinline style="'
+                f'position:absolute;inset:0;width:100%;height:100%;'
+                f'object-fit:cover;z-index:0;">'
+                f'<source src="{bg_url}"></video>'
+            )
+        elif bg_url:
+            bg_style = (
+                f"background-image:url('{bg_url}');"
+                f"background-size:cover;background-position:center;"
+            )
+            bg_video_html = ""
+        else:
+            bg_style = "background:linear-gradient(175deg,#0d1b3e 0%,#0a2744 45%,#071830 100%);"
+            bg_video_html = ""
 
-    overlay_a = cfg["overlay_alpha"] / 255 * 0.85  # preview: estado intermedio visible
+    slide_bg_style = base_bg_style if is_split else bg_style
+    overlay_a = cfg["overlay_alpha"] / 255 * 0.85  # estado intermedio visible
 
-    # Títulos: extraer familias, tamaños y colores de cada entrada del array
+    # Títulos: extraer familias, tamaños y colores
     titles_cfg = cfg.get("titles") or [cfg.get("title", {})]
-    t_families  = [
+    t_families = [
         font_family_name(tc.get("font", "")) if tc.get("font") else "system-ui"
         for tc in titles_cfg
     ]
@@ -293,21 +326,20 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
         + _ls_correction(tc.get("font", ""), tc["font_size"])
         for tc in titles_cfg
     ]
-    t_weights  = [font_weight_from_name(tc.get("font", "")) for tc in titles_cfg]
-    t_lhs      = [float(tc.get("line_height", 1.25)) for tc in titles_cfg]
-    t_shadows  = [bool(tc.get("shadow", True)) for tc in titles_cfg]
+    t_weights = [font_weight_from_name(tc.get("font", "")) for tc in titles_cfg]
+    t_lhs     = [float(tc.get("line_height", 1.25)) for tc in titles_cfg]
+    t_shadows = [bool(tc.get("shadow", True)) for tc in titles_cfg]
 
-    # Posicionar títulos secuencialmente con margin_top por título
+    # Posicionar títulos secuencialmente con margin_top
     tv_top_start = safe_m
     tv_top_end   = TV_SPLIT - split_safe
     tv_top_span  = tv_top_end - tv_top_start
     n_titles     = len(titles_cfg)
-    # Precalcular semialtura real de cada bloque (mismo algoritmo que generate_video)
     t_half_hs = [
         _title_block_half_h(
             tc.get("font", ""),
             eff_t_sizes[i],
-            1,                             # n_lines=1 como base; CSS hará el wrap
+            1,
             float(tc.get("line_height", 1.25)),
         )
         for i, tc in enumerate(titles_cfg)
@@ -360,14 +392,9 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
         + _ls_correction(pb_cfg.get("font", ""), eff_pb_size)
         if pb_cfg else 0
     )
-    pb_weight   = font_weight_from_name(pb_cfg.get("font", "")) if pb_cfg else 400
+    pb_weight = font_weight_from_name(pb_cfg.get("font", "")) if pb_cfg else 400
 
-    def _badge_css(badge: dict | None, font_path: str, canvas_font_size: int) -> str:
-        """
-        Genera CSS de badge con altura idéntica al vídeo.
-        Usa inline-flex + height explícita calculada con las métricas
-        reales del glifo (Pillow), igualando el cálculo de generate_video.py.
-        """
+    def _badge_css(badge, font_path: str, canvas_font_size: int) -> str:
         if not badge:
             return ""
         bg  = badge.get("background", [0, 0, 0, 117])
@@ -375,23 +402,17 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
         px  = parse_px(badge.get("padding_x", badge.get("padding", 30))) * SCALE
         py  = parse_px(badge.get("padding_y", badge.get("padding", 30))) * SCALE
         rad = parse_px(badge.get("border_radius", 999)) * SCALE
-        # Altura exacta = altura visual del glifo + 2×padding vertical
         glyph_h = _glyph_height_css(font_path, canvas_font_size)
         h = glyph_h + 2 * py
         return (
             f"background:rgba({r},{g},{b},{a/255:.3f});"
-            f"display:inline-flex;"
-            f"align-items:center;"
-            f"height:{h:.2f}px;"
-            f"padding:0 {px:.2f}px;"
-            f"border-radius:{rad:.2f}px;"
-            f"box-sizing:content-box;"
+            f"display:inline-flex;align-items:center;"
+            f"height:{h:.2f}px;padding:0 {px:.2f}px;"
+            f"border-radius:{rad:.2f}px;box-sizing:content-box;"
         )
 
     price_badge_css = _badge_css(
-        cfg["price"].get("badge"),
-        cfg["price"].get("font", ""),
-        eff_p_size,
+        cfg["price"].get("badge"), cfg["price"].get("font", ""), eff_p_size
     )
     price_before_badge_css = _badge_css(
         pb_cfg.get("badge") if pb_cfg else None,
@@ -407,7 +428,8 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
         if not enabled:
             return _NO_SHADOW
         return _SHADOW_PRICE if strong else _SHADOW_TXT
-    pb_text     = product.get("precio_antes") or ""
+
+    pb_text = product.get("precio_antes") or ""
 
     # Zona segura
     safe_top_px    = (TV_SPLIT - split_safe) * SCALE
@@ -416,19 +438,69 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
     logo_html        = compute_logo_preview(cfg, output_path, "logo")
     logo_footer_html = compute_logo_preview(cfg, output_path, "logo_footer")
 
+    # ── Alineación de texto según template ───────────────────────────────────
+    if is_split:
+        # El texto usa el ancho completo del canvas (como en centered) pero
+        # alineado a la izquierda. El panel de vídeo entra por detrás (z-index bajo).
+        text_area_right  = f"{safe_m * SCALE:.2f}px"
+        text_align_css   = "left"
+        titles_align_css = "flex-start"
+        price_justify    = "flex-start"
+    else:
+        text_area_right  = f"{safe_m * SCALE:.2f}px"
+        text_align_css   = "center"
+        titles_align_css = "center"
+        price_justify    = "center"
+
+    # Construir HTML de títulos
+    titles_html = "".join(
+        f'<div class="txt title-txt" style="'
+        f'position:relative;transform:none;'
+        f'margin-top:{(titles_cfg[i].get("margin_top", int((tv_top_end - tv_top_start) * 0.25) if i == 0 else int(titles_cfg[i-1]["font_size"] * 0.3))) * SCALE:.2f}px;'
+        f'font-size:{t_fss[i]:.2f}px;'
+        f"font-family:'{t_families[i]}',system-ui,sans-serif;"
+        f'font-weight:{t_weights[i]};'
+        f'line-height:{t_lhs[i]};'
+        f'color:{t_colors[i]};'
+        f'letter-spacing:{t_ls[i]:.2f}px;'
+        f'{_shadow_css(t_shadows[i])}'
+        f'width:100%;text-align:{text_align_css};">'
+        f'{(product.get(titles_cfg[i].get("field","titulo_1")) or "").replace(chr(10), "<br>")}'
+        f'</div>'
+        for i in range(n_titles)
+    )
+
+    # ── HTML del panel derecho (solo split) ───────────────────────────────────
+    if is_split:
+        split_panel_html = f"""
+        <!-- Panel derecho: entra desde la derecha ({video_pct:.0f}% del ancho) -->
+        <!-- Orden z: fondo oscuro (base) → vídeo (encima) → texto/logos (top) -->
+        <div class="split-panel" style="left:{split_pct:.2f}%;width:{video_pct:.2f}%;z-index:2;">
+          {panel_media_html}
+        </div>
+"""
+        full_overlay_html = ""  # sin overlay en el área de texto
+    else:
+        split_panel_html  = ""
+        full_overlay_html = (
+            f'<div style="position:absolute;inset:0;background:rgba(0,0,0,{overlay_a:.2f});'
+            f'pointer-events:none;z-index:1;"></div>'
+        )
+
     return f"""
     <div class="slide-wrapper" data-index="{index}">
       <div class="slide-meta">
         <span class="slide-num">Slide {index + 1} / {total}</span>
-        <span class="slide-dur">{duration:.0f} s</span>
+        <span class="slide-dur">{duration:.0f} s · {template}</span>
       </div>
-      <div class="slide" style="{bg_style}">
+      <div class="slide" style="{slide_bg_style}">
 
-        <!-- Fondo de vídeo (si aplica) -->
+        <!-- Fondo de vídeo (template centered) -->
         {bg_video_html}
 
-        <!-- Overlay oscuro -->
-        <div style="position:absolute;inset:0;background:rgba(0,0,0,{overlay_a:.2f});pointer-events:none;z-index:1;"></div>
+        <!-- Overlay / panel split -->
+        {full_overlay_html}
+        {split_panel_html}
 
         <!-- Logo header -->
         {logo_html}
@@ -436,34 +508,17 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
         <!-- Logo footer -->
         {logo_footer_html}
 
-        <!-- Títulos (TV superior) — flex column para que el wrap empuje hacia abajo -->
+        <!-- Títulos (TV superior) -->
         <div style="
             position:absolute;
             top:{tv_top_start * SCALE:.2f}px;
             left:{safe_m * SCALE:.2f}px;
-            right:{safe_m * SCALE:.2f}px;
+            right:{text_area_right};
             display:flex;
             flex-direction:column;
-            align-items:center;
+            align-items:{titles_align_css};
             z-index:5;">
-          {"".join(
-            f'<div class="txt title-txt" style="'
-            f'position:relative;'
-            f'transform:none;'
-            f'margin-top:{(titles_cfg[i].get("margin_top", int((tv_top_end - tv_top_start) * 0.25) if i == 0 else int(titles_cfg[i-1]["font_size"] * 0.3))) * SCALE:.2f}px;'
-            f'font-size:{t_fss[i]:.2f}px;'
-            f"font-family:'{t_families[i]}',system-ui,sans-serif;"
-            f'font-weight:{t_weights[i]};'
-            f'line-height:{t_lhs[i]};'
-            f'color:{t_colors[i]};'
-            f'letter-spacing:{t_ls[i]:.2f}px;'
-            f'{_shadow_css(t_shadows[i])}'
-            f'width:100%;'
-            f'text-align:center;">'
-            f'{(product.get(titles_cfg[i].get("field","titulo_1")) or "").replace(chr(10), "<br>")}'
-            f'</div>'
-            for i in range(n_titles)
-          )}
+          {titles_html}
         </div>
 
         <!-- Descripción (TV inferior — arriba) -->
@@ -477,20 +532,21 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
             letter-spacing:{d_ls:.2f}px;
             {_shadow_css(d_shadow)}
             left:{safe_m * SCALE:.2f}px;
-            right:{safe_m * SCALE:.2f}px;">
+            right:{text_area_right};
+            text-align:{text_align_css};">
           {(product.get("descripcion") or "").replace(chr(10), "<br>")}
         </div>
 
-        <!-- Precio (TV inferior — abajo) -->
-        <div style="
+        <!-- Precio (TV inferior — abajo; solo si hay texto) -->
+        {(f'''<div style="
             position:absolute;
             top:{price_cy * SCALE:.2f}px;
             transform:translateY(-50%);
             left:{safe_m * SCALE:.2f}px;
-            right:{safe_m * SCALE:.2f}px;
+            right:{text_area_right};
             display:flex;
             align-items:center;
-            justify-content:center;
+            justify-content:{price_justify};
             gap:{pb_gap:.2f}px;
             z-index:5;">
           {(
@@ -519,7 +575,7 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
             {price_badge_css}">
             {(product.get("precio") or "").replace(chr(10), "<br>")}
           </span>
-        </div>
+        </div>''') if ((product.get("precio") or "") or pb_text) else ""}
 
         <!-- Indicadores de zona segura (toggle) -->
         <div class="guide split-guide" style="top:{TV_SPLIT * SCALE:.2f}px;">
@@ -710,6 +766,18 @@ HTML_TEMPLATE = """\
     .margin-bottom {{ left:0;right:0;height:1px;   background:rgba(0,200,255,.3); z-index:18; }}
     .margin-left   {{ top:0;bottom:0;width:1px;    background:rgba(0,200,255,.3); z-index:18; }}
     .margin-right  {{ top:0;bottom:0;width:1px;    background:rgba(0,200,255,.3); z-index:18; }}
+
+    /* ── Template SPLIT: panel derecho que entra desde la derecha ── */
+    @keyframes slideInRight {{
+      from {{ transform: translateX(100%); }}
+      to   {{ transform: translateX(0);    }}
+    }}
+    .split-panel {{
+      position: absolute;
+      top: 0; bottom: 0;
+      z-index: 0;
+      animation: slideInRight 0.7s cubic-bezier(0,0,.2,1) forwards;
+    }}
   </style>
 </head>
 <body>

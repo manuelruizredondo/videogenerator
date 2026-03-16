@@ -34,6 +34,7 @@ DRIVE_MEDIA_EXTENSIONS = {
 PRODUCTS_FIELDS = [
     "titulo_1", "titulo_2", "titulo_3",
     "descripcion", "precio_antes", "precio", "imagen",
+    "duracion",
     # Tamaños de fuente opcionales por producto (sobreescriben config.json)
     "font_size_titulo_1", "font_size_titulo_2", "font_size_titulo_3",
     "font_size_descripcion", "font_size_precio", "font_size_precio_antes",
@@ -48,6 +49,8 @@ HEADER_MAP = {
     "precio anterior (tachado)":  "precio_antes",
     "precio actual":              "precio",
     "imagen / vídeo (ruta)":      "imagen",
+    "duración (segundos)":        "duracion",
+    "duracion":                   "duracion",
     # Tamaños de fuente (columnas opcionales en Sheets)
     "tamaño título 1":            "font_size_titulo_1",
     "tamaño título 2":            "font_size_titulo_2",
@@ -253,8 +256,11 @@ def sync_products(sh) -> list | None:
                     product[field] = val
             except ValueError:
                 pass
-        # Descartar filas de referencia donde el valor coincide con el nombre del campo
-        if product and not all(v == k for k, v in product.items()):
+        # Descartar la fila de referencia (fila 2) donde cada valor == nombre del campo
+        if not product:
+            continue
+        is_ref_row = all(v == k for k, v in product.items())
+        if not is_ref_row:
             products.append(product)
 
     return products
@@ -345,6 +351,7 @@ FIELD_TO_HEADER.update({
     "precio_antes":         "Precio anterior (tachado)",
     "precio":               "Precio actual",
     "imagen":               "Imagen / vídeo (ruta)",
+    "duracion":             "Duración (segundos)",
     "font_size_titulo_1":   "Tamaño título 1",
     "font_size_titulo_2":   "Tamaño título 2",
     "font_size_titulo_3":   "Tamaño título 3",
@@ -395,10 +402,15 @@ def push_products_to_sheets(sh, products: list) -> int:
             final_headers.append(nice_header)
             header_to_col[field] = len(final_headers) - 1
 
-    # ── Construir filas de datos ──────────────────────────────────────────────
+    # ── Construir fila de referencia (fila 2) y filas de datos ──────────────
     n_cols = len(final_headers)
-    rows_to_write: list[list] = []
 
+    # Fila 2: nombres internos de campo (referencia visual en el Sheet)
+    ref_row = [""] * n_cols
+    for field, col_idx in header_to_col.items():
+        ref_row[col_idx] = field
+
+    rows_to_write: list[list] = []
     for product in products:
         row = [""] * n_cols
         for field, value in product.items():
@@ -417,10 +429,12 @@ def push_products_to_sheets(sh, products: list) -> int:
         clear_range = f"A2:{chr(ord('A') + n_cols - 1)}{last_data_row}"
         ws.batch_clear([clear_range])
 
-    # 3. Escribir nuevos datos
+    # 3. Escribir fila de referencia en fila 2
+    ws.update([ref_row], "A2")
+
+    # 4. Escribir datos de productos desde fila 3
     if rows_to_write:
-        start_cell = "A2"
-        ws.update([r for r in rows_to_write], start_cell)
+        ws.update(rows_to_write, "A3")
 
     return len(rows_to_write)
 
