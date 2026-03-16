@@ -9,7 +9,9 @@ Uso:
 """
 
 import argparse
+import base64
 import json
+import mimetypes
 import os
 import shutil
 import sys
@@ -154,27 +156,38 @@ def resolve_path(path: str) -> Path:
     return PROJECT_ROOT / p
 
 
+def file_to_data_uri(path: Path) -> str:
+    """Convierte un archivo a data URI base64 para embebido inline en HTML/CSS."""
+    mime, _ = mimetypes.guess_type(str(path))
+    if not mime:
+        mime = "application/octet-stream"
+    data = base64.b64encode(path.read_bytes()).decode()
+    return f"data:{mime};base64,{data}"
+
+
 def image_url(img_path: str, output_path: str) -> str:
     """
-    Copia la imagen a output/ manteniendo su sub-ruta relativa al proyecto
-    y devuelve la URL relativa dentro de output/ para usar en el HTML.
-    Si la imagen no existe devuelve ''.
+    Para imágenes: devuelve un data URI base64 (funciona con file:// y evita
+    que html2canvas tinte el canvas al exportar JPG).
+    Para vídeos: copia a output/ y devuelve la ruta relativa (los vídeos no
+    pueden embeberse eficientemente en base64).
+    Devuelve '' si el archivo no existe.
     """
     src = resolve_path(img_path).resolve()
     if not src.exists():
         return ""
 
-    # Sub-ruta relativa al proyecto (ej. assets/logos/logo.png)
-    try:
-        rel = src.relative_to(PROJECT_ROOT)
-    except ValueError:
-        rel = Path(src.name)
+    if src.suffix.lower() in _VIDEO_EXTS:
+        try:
+            rel = src.relative_to(PROJECT_ROOT)
+        except ValueError:
+            rel = Path(src.name)
+        dest = Path(output_path).parent / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dest)
+        return rel.as_posix()
 
-    dest = Path(output_path).parent / rel
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(src, dest)
-
-    return rel.as_posix()
+    return file_to_data_uri(src)
 
 
 _VIDEO_EXTS = frozenset({".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v", ".flv", ".mts"})
@@ -938,15 +951,11 @@ HTML_TEMPLATE = """\
 
 def build_font_faces(cfg: dict, output_path: str) -> str:
     """
-    Genera bloques @font-face para cada fuente configurada que exista en fonts/.
-    Copia las fuentes a output/fonts/ para que funcionen como sitio web estático
-    (Cloudflare Pages u otros) y usa rutas relativas desde dentro de output/.
+    Genera bloques @font-face embebiendo cada fuente como data URI base64.
+    Así el HTML es completamente autónomo: funciona con file://, Cloudflare, etc.
     """
     seen: set[str] = set()
     blocks: list[str] = []
-    output_dir   = Path(output_path).parent
-    fonts_root   = PROJECT_ROOT / "fonts"
-    out_fonts_dir = output_dir / "fonts"
 
     # Recopilar todas las fuentes referenciadas en el config
     font_sources: list[str] = []
@@ -972,17 +981,8 @@ def build_font_faces(cfg: dict, output_path: str) -> str:
             print(f"  ⚠  Fuente '{font_file}' no encontrada — el preview usará fuente del sistema.", file=sys.stderr)
             continue
 
-        # Calcular sub-ruta dentro de fonts/ y copiar al directorio de output
-        try:
-            rel_within_fonts = font_path.relative_to(fonts_root)
-        except ValueError:
-            rel_within_fonts = Path(font_path.name)
-
-        dest = out_fonts_dir / rel_within_fonts
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(font_path, dest)
-
-        url    = f"fonts/{rel_within_fonts.as_posix()}"
+        # Embeber fuente como base64 para que funcione con file:// y html2canvas
+        url    = file_to_data_uri(font_path)
         family = font_family_name(font_file)
         weight = font_weight_from_name(font_file)
         suffix = font_path.suffix.lower()
