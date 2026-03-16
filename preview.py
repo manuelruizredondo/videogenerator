@@ -156,13 +156,25 @@ def resolve_path(path: str) -> Path:
 
 def image_url(img_path: str, output_path: str) -> str:
     """
-    Devuelve una ruta relativa desde el HTML de salida hasta la imagen.
+    Copia la imagen a output/ manteniendo su sub-ruta relativa al proyecto
+    y devuelve la URL relativa dentro de output/ para usar en el HTML.
     Si la imagen no existe devuelve ''.
     """
-    src = resolve_path(img_path)
+    src = resolve_path(img_path).resolve()
     if not src.exists():
         return ""
-    return os.path.relpath(src, start=Path(output_path).parent)
+
+    # Sub-ruta relativa al proyecto (ej. assets/logos/logo.png)
+    try:
+        rel = src.relative_to(PROJECT_ROOT)
+    except ValueError:
+        rel = Path(src.name)
+
+    dest = Path(output_path).parent / rel
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dest)
+
+    return rel.as_posix()
 
 
 _VIDEO_EXTS = frozenset({".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v", ".flv", ".mts"})

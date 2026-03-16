@@ -13,6 +13,9 @@ assets/backgrounds/
 output/*
 !output/index.html
 !output/fonts/
+!output/assets/
+output/assets/*
+!output/assets/logos/
 
 # ── macOS ─────────────────────────────────────────────────────────────────────
 .DS_Store

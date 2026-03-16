@@ -120,7 +120,7 @@
   },
   "fade_out_duration": 1.2,
   "logo": {
-    "file": "assets/logo.png",
+    "file": "assets/logos/logo.png",
     "width": 520,
     "position": "top-center",
     "margin_top": 120,
@@ -131,7 +131,7 @@
     "slide_duration": 0.6
   },
   "logo_footer": {
-    "file": "assets/logofooter.png",
+    "file": "assets/logos/logofooter.png",
     "width": 420,
     "position": "bottom-center",
     "margin_top": 100,
