@@ -11,6 +11,7 @@ Uso:
 import argparse
 import json
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -926,10 +927,14 @@ HTML_TEMPLATE = """\
 def build_font_faces(cfg: dict, output_path: str) -> str:
     """
     Genera bloques @font-face para cada fuente configurada que exista en fonts/.
-    Devuelve el CSS listo para incrustar en <style>.
+    Copia las fuentes a output/fonts/ para que funcionen como sitio web estático
+    (Cloudflare Pages u otros) y usa rutas relativas desde dentro de output/.
     """
     seen: set[str] = set()
     blocks: list[str] = []
+    output_dir   = Path(output_path).parent
+    fonts_root   = PROJECT_ROOT / "fonts"
+    out_fonts_dir = output_dir / "fonts"
 
     # Recopilar todas las fuentes referenciadas en el config
     font_sources: list[str] = []
@@ -955,17 +960,27 @@ def build_font_faces(cfg: dict, output_path: str) -> str:
             print(f"  ⚠  Fuente '{font_file}' no encontrada — el preview usará fuente del sistema.", file=sys.stderr)
             continue
 
-        rel_path  = os.path.relpath(font_path, start=Path(output_path).parent)
-        family    = font_family_name(font_file)
-        weight    = font_weight_from_name(font_file)
-        suffix    = font_path.suffix.lower()
-        fmt_map   = {".ttf": "truetype", ".otf": "opentype", ".woff": "woff", ".woff2": "woff2"}
-        fmt       = fmt_map.get(suffix, "truetype")
+        # Calcular sub-ruta dentro de fonts/ y copiar al directorio de output
+        try:
+            rel_within_fonts = font_path.relative_to(fonts_root)
+        except ValueError:
+            rel_within_fonts = Path(font_path.name)
+
+        dest = out_fonts_dir / rel_within_fonts
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(font_path, dest)
+
+        url    = f"fonts/{rel_within_fonts.as_posix()}"
+        family = font_family_name(font_file)
+        weight = font_weight_from_name(font_file)
+        suffix = font_path.suffix.lower()
+        fmt_map = {".ttf": "truetype", ".otf": "opentype", ".woff": "woff", ".woff2": "woff2"}
+        fmt     = fmt_map.get(suffix, "truetype")
 
         blocks.append(
             f"@font-face {{\n"
             f"  font-family: '{family}';\n"
-            f"  src: url('{rel_path}') format('{fmt}');\n"
+            f"  src: url('{url}') format('{fmt}');\n"
             f"  font-weight: {weight};\n"
             f"  font-style: normal;\n"
             f"  font-synthesis: none;\n"

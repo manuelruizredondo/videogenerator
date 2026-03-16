@@ -12,6 +12,7 @@ credentials/oauth_client.json
 assets/backgrounds/
 output/*
 !output/index.html
+!output/fonts/
 
 # ── macOS ─────────────────────────────────────────────────────────────────────
 .DS_Store
