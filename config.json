@@ -31,7 +31,7 @@
       ],
       "appear_at": 1.9,
       "fade_duration": 0.5,
-      "margin_top": 700,
+      "margin_top": 650,
       "shadow": false
     },
     {
@@ -53,7 +53,7 @@
     {
       "field": "titulo_3",
       "font": "fonts/neutrif/font-regular.ttf",
-      "font_size": 100,
+      "font_size": 130,
       "letter_spacing": 0,
       "line_height": 1.25,
       "color": [
@@ -69,7 +69,7 @@
   ],
   "description": {
     "font": "fonts/neutrif/font-light.ttf",
-    "font_size": 105,
+    "font_size": 150,
     "letter_spacing": 0,
     "line_height": 1.25,
     "shadow": false,
@@ -82,8 +82,8 @@
     "fade_duration": 0.5
   },
   "price": {
-    "font": "fonts/neutrif/font-bold.ttf",
-    "font_size": 280,
+    "font": "fonts/neutrif/font-regular.ttf",
+    "font_size": 220,
     "letter_spacing": 0,
     "line_height": 1.25,
     "shadow": false,
