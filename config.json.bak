@@ -74,9 +74,9 @@
     "line_height": 1.25,
     "shadow": false,
     "color": [
-      255,
-      255,
-      255
+      210,
+      215,
+      225
     ],
     "appear_at": 3.2,
     "fade_duration": 0.5
@@ -100,8 +100,8 @@
     },
     "color": [
       255,
-      255,
-      255
+      220,
+      50
     ],
     "appear_at": 4.4,
     "fade_duration": 0.4
@@ -112,21 +112,21 @@
     "letter_spacing": 0,
     "shadow": false,
     "color": [
-      255,
-      255,
-      255
+      170,
+      170,
+      170
     ],
     "gap": 100,
     "strikethrough_color": [
-      255,
-      255,
-      255
+      220,
+      80,
+      80
     ],
     "strikethrough_width": 5
   },
   "fade_out_duration": 1.2,
   "logo": {
-    "file": "assets/logos/logo.png",
+    "file": "assets/logo.png",
     "width": 520,
     "position": "top-center",
     "margin_top": 120,
@@ -137,7 +137,7 @@
     "slide_duration": 0.6
   },
   "logo_footer": {
-    "file": "assets/logos/logofooter.png",
+    "file": "assets/logofooter.png",
     "width": 420,
     "position": "bottom-center",
     "margin_top": 100,

@@ -44,12 +44,12 @@ ICONS = [
         "line2":   "HTML",
     },
     {
-        "file":         "Sincronizar Sheets.command",
+        "file":         "Bajar de Sheets.command",
         "bg":           (10, 80, 35),
         "accent":       (52, 168, 83),
-        "symbol":       "↻",
-        "symbol_scale": 0.52,
-        "line1":        "SYNC",
+        "symbol":       "↓",
+        "symbol_scale": 0.55,
+        "line1":        "BAJAR",
         "line2":        "",
     },
     {

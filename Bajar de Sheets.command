@@ -1,12 +1,12 @@
 #!/bin/zsh
-# Sincronizar Sheets.command
+# Bajar de Sheets.command
 # Descarga la configuración desde Google Sheets y actualiza config.json + products.json
 
 cd "$(dirname "$0")"
 
 echo ""
 echo "══════════════════════════════════════════════════"
-echo "   VideoGenerator — Sincronizar desde Google Sheets"
+echo "   VideoGenerator — Bajar desde Google Sheets"
 echo "══════════════════════════════════════════════════"
 echo ""
 
@@ -26,9 +26,9 @@ STATUS=$?
 
 echo ""
 if [[ $STATUS -eq 0 ]]; then
-  echo "✔  Sincronización completada. Ya puedes generar el vídeo."
+  echo "✔  Descarga completada. Ya puedes generar el vídeo."
 else
-  echo "✖  La sincronización ha fallado (código $STATUS)."
+  echo "✖  La descarga ha fallado (código $STATUS)."
   echo "   Revisa el mensaje de error anterior."
 fi
 

@@ -23,7 +23,7 @@ OAUTH_PATH      = CREDS_DIR / "oauth_client.json"
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",   # lectura + escritura
-    "https://www.googleapis.com/auth/drive.readonly",
+    "https://www.googleapis.com/auth/drive",          # lectura + escritura Drive
 ]
 
 DRIVE_MEDIA_EXTENSIONS = {
@@ -337,6 +337,197 @@ def sync_assets_from_drive(creds, folder_id: str, local_dir: Path) -> tuple[int,
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+#  SUBIDA DE ASSETS → GOOGLE DRIVE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _get_or_create_drive_folder(service, name: str, parent_id: str) -> str:
+    """Devuelve el ID de una subcarpeta en Drive, creándola si no existe."""
+    resp = service.files().list(
+        q=(f"'{parent_id}' in parents and trashed=false"
+           f" and mimeType='application/vnd.google-apps.folder'"
+           f" and name='{name}'"),
+        fields="files(id)",
+        pageSize=1,
+    ).execute()
+    files = resp.get("files", [])
+    if files:
+        return files[0]["id"]
+    folder = service.files().create(
+        body={"name": name, "mimeType": "application/vnd.google-apps.folder",
+              "parents": [parent_id]},
+        fields="id",
+    ).execute()
+    return folder["id"]
+
+
+def push_assets_to_drive(creds, folder_id: str, local_dir: Path) -> tuple[int, int]:
+    """
+    Sube recursivamente todos los archivos de imagen/vídeo bajo local_dir
+    a la carpeta de Drive, respetando la estructura de subcarpetas.
+    - Si el archivo no existe en Drive → lo crea.
+    - Si existe pero el tamaño local difiere → lo actualiza.
+    - Si existe con el mismo tamaño → lo omite.
+    Devuelve (subidos, omitidos).
+    """
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaFileUpload
+    import mimetypes
+
+    service = build("drive", "v3", credentials=creds, cache_discovery=False)
+
+    # Buscar la carpeta raíz de assets (padre de local_dir o la propia local_dir)
+    # Subimos desde la carpeta PADRE de local_dir para incluir también
+    # subcarpetas hermanas (ej: logos/ junto a backgrounds/)
+    assets_root = local_dir.parent if local_dir.name != "assets" else local_dir
+
+    if not assets_root.exists():
+        print(f"  ⚠️   Carpeta local no encontrada: {assets_root}")
+        return 0, 0
+
+    # Caché de IDs de carpetas Drive ya resueltos: ruta relativa → drive_folder_id
+    folder_id_cache: dict[str, str] = {"": folder_id}
+
+    def _drive_folder_for(rel_parts: tuple) -> str:
+        """Resuelve (creando si hace falta) la carpeta Drive para una ruta relativa."""
+        key = "/".join(rel_parts)
+        if key in folder_id_cache:
+            return folder_id_cache[key]
+        parent_key    = "/".join(rel_parts[:-1])
+        parent_drive  = _drive_folder_for(rel_parts[:-1])
+        fid           = _get_or_create_drive_folder(service, rel_parts[-1], parent_drive)
+        folder_id_cache[key] = fid
+        return fid
+
+    # Recopilar índice de archivos existentes en Drive (recursivo) para comparar tamaños
+    existing_by_path: dict[str, dict] = {}
+    for item in _list_drive_files(service, folder_id):
+        existing_by_path[item["name"]] = {"id": item["id"], "size": int(item.get("size", 0))}
+
+    uploaded = 0
+    skipped  = 0
+
+    all_files = sorted(
+        p for p in assets_root.rglob("*")
+        if p.is_file() and p.suffix.lower() in DRIVE_MEDIA_EXTENSIONS
+    )
+
+    for path in all_files:
+        rel        = path.relative_to(assets_root)
+        rel_parts  = rel.parts          # ej: ("backgrounds", "video.mp4")
+        filename   = rel_parts[-1]
+        subfolders = rel_parts[:-1]     # ej: ("backgrounds",)
+
+        local_size  = path.stat().st_size
+        remote_info = existing_by_path.get(filename)
+
+        if remote_info and remote_info["size"] == local_size:
+            skipped += 1
+            continue
+
+        display = "/".join(rel_parts)
+        mime_type = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+        media     = MediaFileUpload(str(path), mimetype=mime_type, resumable=True)
+
+        target_folder = _drive_folder_for(subfolders) if subfolders else folder_id
+
+        if remote_info:
+            print(f"  ⬆  {display}  ({local_size / 1024 / 1024:.1f} MB)  [actualizando]")
+            service.files().update(
+                fileId=remote_info["id"],
+                media_body=media,
+            ).execute()
+        else:
+            print(f"  ⬆  {display}  ({local_size / 1024 / 1024:.1f} MB)  [nuevo]")
+            service.files().create(
+                body={"name": filename, "parents": [target_folder]},
+                media_body=media,
+            ).execute()
+
+        uploaded += 1
+
+    return uploaded, skipped
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  SUBIDA DE CONFIG → GOOGLE SHEETS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _flatten_config(obj, prefix: str = "") -> dict:
+    """
+    Aplana un dict jerárquico a rutas dot-path → valor.
+    Ignora claves que empiezan por '_' (comentarios/notas).
+    Ejemplo: {"titles": [{"font_size": 130}]} → {"titles.0.font_size": 130}
+    """
+    result = {}
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if str(k).startswith("_"):
+                continue
+            full_key = f"{prefix}.{k}" if prefix else str(k)
+            result.update(_flatten_config(v, full_key))
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            full_key = f"{prefix}.{i}" if prefix else str(i)
+            result.update(_flatten_config(v, full_key))
+    else:
+        result[prefix] = obj
+    return result
+
+
+def push_config_to_sheets(sh, config: dict) -> int:
+    """
+    Recorre todas las hojas con columnas 'Clave' y 'Valor' y actualiza
+    los valores que coincidan con las claves aplanadas de config.json.
+    Solo actualiza filas existentes; no añade claves nuevas.
+    Devuelve el número de celdas actualizadas.
+    """
+    skip_titles = {"productos", "products", "📦 productos"}
+    flat        = _flatten_config(config)
+    updated     = 0
+
+    for ws in sh.worksheets():
+        if ws.title.lower().strip() in skip_titles:
+            continue
+
+        rows = ws.get_all_values()
+        if len(rows) < 2:
+            continue
+
+        headers = [h.strip().lower() for h in rows[0]]
+        try:
+            key_col = headers.index("clave")
+            val_col = headers.index("valor")
+        except ValueError:
+            continue
+
+        cells_to_update = []
+        for row_idx, row in enumerate(rows[1:], start=2):   # 1-based, fila 1 = cabecera
+            if len(row) <= key_col:
+                continue
+            key = row[key_col].strip()
+            if not key or key.startswith("#"):
+                continue
+            if key in flat:
+                new_val = flat[key]
+                # Serializar listas/dicts a JSON compacto
+                if isinstance(new_val, (list, dict)):
+                    new_val = json.dumps(new_val, ensure_ascii=False)
+                else:
+                    new_val = str(new_val) if new_val is not None else ""
+                col_letter = chr(ord("A") + val_col)
+                cells_to_update.append({
+                    "range": f"{col_letter}{row_idx}",
+                    "values": [[new_val]],
+                })
+
+        if cells_to_update:
+            ws.batch_update(cells_to_update)
+            updated += len(cells_to_update)
+
+    return updated
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 #  SUBIDA DE PRODUCTOS → GOOGLE SHEETS
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -484,7 +675,18 @@ def main() -> None:
 
     # ══════════════════════════════════════════════════════════════════════════
     if args.push:
-        # ── MODO SUBIDA: local → Sheets ───────────────────────────────────────
+        # ── MODO SUBIDA: local → Sheets + Drive ──────────────────────────────
+
+        # ── Config → Sheets ───────────────────────────────────────────────────
+        if CONFIG_PATH.exists():
+            config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+            print("⬆️   Actualizando config.json en Google Sheets...")
+            n_cfg = push_config_to_sheets(sh, config)
+            print(f"✅  config.json → {n_cfg} valores actualizados en Sheets")
+        else:
+            print(f"⚠️   No se encontró {CONFIG_PATH}")
+
+        # ── Productos → Sheets ────────────────────────────────────────────────
         if not PRODUCTS_PATH.exists():
             print(f"❌  No se encontró {PRODUCTS_PATH}")
             sys.exit(1)
@@ -495,6 +697,19 @@ def main() -> None:
         print(f"⬆️   Subiendo {len(products)} productos a Google Sheets...")
         n = push_products_to_sheets(sh, products)
         print(f"✅  {n} productos subidos a la hoja 'Productos'")
+
+        # ── Assets → Google Drive ─────────────────────────────────────────────
+        drive_folder_id = sheets_cfg.get("drive_folder_id", "").strip()
+        if drive_folder_id:
+            local_assets = PROJECT_ROOT / sheets_cfg.get("drive_assets_local", "assets/backgrounds")
+            print(f"\n📁  Subiendo assets a Google Drive ← {local_assets.relative_to(PROJECT_ROOT)}/")
+            try:
+                up, sk = push_assets_to_drive(creds, drive_folder_id, local_assets)
+                print(f"✅  Drive assets → {up} subidos, {sk} ya estaban actualizados")
+            except Exception as e:
+                print(f"❌  Error subiendo assets a Drive: {e}")
+        else:
+            print("ℹ️   drive_folder_id no configurado en sheets_settings.json (Drive omitido)")
         return
     # ══════════════════════════════════════════════════════════════════════════
 
