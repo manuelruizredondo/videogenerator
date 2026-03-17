@@ -2,7 +2,7 @@
   {
     "titulo_1": "BIENVENIDO",
     "titulo_2": "Centre Mèdic Basté",
-    "titulo_3": "Medicina Estética · Odontología · Micropigmentación",
+    "titulo_3": "Odontología, Medicina Estética ·  Micropigmentación",
     "descripcion": "Especialistas en tratamientos estéticos y dentales.\nTe cuidamos con los mejores profesionales.",
     "precio": "Entra y pregunta",
     "imagen": "assets/backgrounds/video.mp4",
@@ -11,7 +11,7 @@
   {
     "titulo_1": "3er ANIVERSARIO",
     "titulo_2": "24 DE ABRIL · \n PUERTAS ABIERTAS",
-    "titulo_3": "Medicina Estética · Micropigmentación · Implantología",
+    "titulo_3": "Implantología, Medicina Estética · Micropigmentación ·",
     "descripcion": "10% de descuento ese día en todos los tratamientos.\n¡Pide tu cita ahora!",
     "precio": "Cóctel de 15h a 20h",
     "imagen": "assets/backgrounds/party.mp4",
@@ -23,7 +23,7 @@
     "titulo_3": "Toxina botulínica · Labios · Armonización facial",
     "descripcion": "Suaviza arrugas y diseña tu mejor versión.\nAsesoría médica gratuita en nuestro cóctel.",
     "precio_antes": "290 €",
-    "precio": "261 €",
+    "precio": "260 €",
     "imagen": "assets/backgrounds/party.mp4",
     "duracion": "10"
   },
@@ -42,6 +42,7 @@
     "titulo_2": "Boca completa fija",
     "titulo_3": "4 o 6 implantes · Solución permanente",
     "descripcion": "Sal con dientes provisionales en 24-48h.\n25 años de especialización en cirugía bucal.",
+    "precio_antes": "Consultar precio",
     "precio": "1ª visita gratuita",
     "imagen": "assets/backgrounds/img_implantologia.jpg",
     "duracion": "10"
@@ -60,17 +61,30 @@
     "titulo_1": "HIGIENE DENTAL",
     "titulo_2": "Tecnología Airflow",
     "titulo_3": "Elimina manchas · Sarro · Bacterias",
-    "descripcion": "Encías sanas y dientes más blancos en 1 sesión.\nSuave, precisa y sin dolor.",
-    "precio": "260 €",
+    "descripcion": "Encías sanas y dientes más blanco en 1 sesión.\nSuave y precisa",
+    "precio_antes": "90€",
+    "precio": "75€",
     "imagen": "assets/backgrounds/airflow.mp4",
     "duracion": "12"
   },
+  {
+    "producto": "Trayectoria",
+    "duracion": 12,
+    "titulo_1": "25 AÑOS CUIDÁNDOTE",
+    "titulo_2": "Experiencia que se nota",
+    "titulo_3": "Primer centro · 25 años · Segundo centro · 3 años",
+    "descripcion": "Dos décadas y media de confianza \n avalan cada tratamiento. \nMiles de pacientes ya han pasado por nuestras manos.",
+    "precio": "Somos tu clínica de confianza",
+    "imagen": "assets/backgrounds/dentalbaste.mp4"
+  },
+
   {
     "titulo_1": "PRIMERA VISITA",
     "titulo_2": "Diagnóstico completo",
     "titulo_3": "TAC · Radiografía digital · Escáner intraoral 3D",
     "descripcion": "Estudio clínico riguroso con tecnología avanzada.\nSin compromiso, te lo explicamos todo.",
-    "precio": "GRATIS",
+    "precio_antes": "100€",
+    "precio": "GRATUITA",
     "imagen": "assets/backgrounds/home-1.jpg",
     "duracion": "10"
   }
