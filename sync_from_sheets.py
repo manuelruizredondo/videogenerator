@@ -456,7 +456,11 @@ def _flatten_config(obj, prefix: str = "") -> dict:
     """
     Aplana un dict jerárquico a rutas dot-path → valor.
     Ignora claves que empiezan por '_' (comentarios/notas).
-    Ejemplo: {"titles": [{"font_size": 130}]} → {"titles.0.font_size": 130}
+    - Arrays de primitivos (colores, etc.) → se guardan como JSON en una sola celda:
+        {"price": {"color": [255,255,255]}} → {"price.color": "[255, 255, 255]"}
+    - Arrays de objetos (titles[]) → se expanden:
+        {"titles": [{"font_size": 130}]} → {"titles.0.font_size": 130}
+    Esto coincide con el formato que usa sync_config al leer desde Sheets.
     """
     result = {}
     if isinstance(obj, dict):
@@ -466,9 +470,13 @@ def _flatten_config(obj, prefix: str = "") -> dict:
             full_key = f"{prefix}.{k}" if prefix else str(k)
             result.update(_flatten_config(v, full_key))
     elif isinstance(obj, list):
-        for i, v in enumerate(obj):
-            full_key = f"{prefix}.{i}" if prefix else str(i)
-            result.update(_flatten_config(v, full_key))
+        # Arrays de solo primitivos → valor JSON compacto (ej: colores, intro_bg_color)
+        if obj and all(not isinstance(v, (dict, list)) for v in obj):
+            result[prefix] = json.dumps(obj, ensure_ascii=False)
+        else:
+            for i, v in enumerate(obj):
+                full_key = f"{prefix}.{i}" if prefix else str(i)
+                result.update(_flatten_config(v, full_key))
     else:
         result[prefix] = obj
     return result
