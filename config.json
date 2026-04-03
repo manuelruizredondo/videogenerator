@@ -32,7 +32,7 @@
       "appear_at": 1.9,
       "fade_duration": 0.5,
       "margin_top": 650,
-      "shadow": false
+      "shadow": true
     },
     {
       "field": "titulo_2",
@@ -48,7 +48,7 @@
       "appear_at": 2.4,
       "fade_duration": 0.5,
       "margin_top": 70,
-      "shadow": false
+      "shadow": true
     },
     {
       "field": "titulo_3",
@@ -64,7 +64,7 @@
       "appear_at": 2.9,
       "fade_duration": 0.5,
       "margin_top": 50,
-      "shadow": false
+      "shadow": true
     }
   ],
   "description": {
@@ -72,7 +72,7 @@
     "font_size": 150,
     "letter_spacing": 0,
     "line_height": 1.25,
-    "shadow": false,
+    "shadow": true,
     "color": [
       255,
       255,
@@ -86,7 +86,7 @@
     "font_size": 220,
     "letter_spacing": 0,
     "line_height": 1.25,
-    "shadow": false,
+    "shadow": true,
     "badge": {
       "background": [
         0,
@@ -110,7 +110,7 @@
     "font": "fonts/neutrif/font-light.ttf",
     "font_size": 190,
     "letter_spacing": 0,
-    "shadow": false,
+    "shadow": true,
     "color": [
       255,
       255,
@@ -165,7 +165,7 @@
     "badge": "Fondo detrás del texto de precio. background: [R,G,B,A] (A: 0=transparente, 255=opaco). padding en px de canvas. border_radius: 0=sin redondeo, 45=rectángulo redondeado, 999=píldora perfecta. Disponible en 'price' y 'price_before'.",
     "line_height": "Interlineado como multiplicador del tamaño de línea. 1.0 = sin espacio extra, 1.25 = normal, 1.6 = muy espaciado. Disponible en titles[], description y price.",
     "letter_spacing": "Espacio extra en píxeles entre cada carácter. 0 = normal, >0 = más espaciado, <0 = más comprimido. Disponible en titles[], description, price y price_before.",
-    "shadow": "Activa o desactiva la sombra de texto. true = con sombra (por defecto), false = sin sombra. Disponible en titles[], description, price y price_before.",
+    "shadow": "Activa o desactiva la sombra de texto. true = con sombra (por defecto), true = sin sombra. Disponible en titles[], description, price y price_before.",
     "template": "Template de layout del slide. 'centered' (por defecto): fondo a pantalla completa y textos centrados. 'split': panel izquierdo oscuro con textos alineados a la izquierda + panel derecho con el vídeo/imagen del producto que entra animado desde la derecha (ideal para vídeos verticales tipo Instagram Reel). Se define en cada producto del products.json.",
     "panel_slide_duration": "Solo para template 'split'. Duración en segundos de la animación de entrada del panel de vídeo desde la derecha. Por defecto 0.7s. Se define en config.json a nivel global.",
     "duracion": "Duración del slide en segundos. Se define en cada producto de products.json. Si se omite, se calcula automáticamente a partir de los appear_at y hold_duration del config.",
