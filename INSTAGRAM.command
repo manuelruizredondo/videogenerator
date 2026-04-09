@@ -18,7 +18,7 @@ fi
 
 source .venv/bin/activate
 
-python generate_instagram.py
+.venv/bin/python3 generate_instagram.py
 STATUS=$?
 
 echo ""

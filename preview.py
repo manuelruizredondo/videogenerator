@@ -14,7 +14,9 @@ import json
 import mimetypes
 import os
 import shutil
+import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 try:
@@ -149,11 +151,11 @@ PROJECT_ROOT = Path(__file__).parent
 
 
 def resolve_path(path: str) -> Path:
-    """Resuelve una ruta relativa al directorio del proyecto."""
+    """Resuelve una ruta relativa al directorio del proyecto (no al cwd del proceso)."""
     p = Path(path)
-    if p.is_absolute() or p.exists():
+    if p.is_absolute():
         return p
-    return PROJECT_ROOT / p
+    return (PROJECT_ROOT / p).resolve()
 
 
 def file_to_data_uri(path: Path) -> str:
@@ -333,7 +335,23 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
             bg_video_html = ""
 
     slide_bg_style = base_bg_style if is_split else bg_style
-    overlay_a = cfg["overlay_alpha"] / 255 * 0.85  # estado intermedio visible
+    # Velado: por slide (products.json) o valor por defecto de config.json — mismo criterio que generate_video
+    # show_overlay: false desactiva el velado completamente para este slide
+    _show_overlay = str(product.get("show_overlay", "true")).strip().lower() not in ("false", "0", "no")
+    if not _show_overlay:
+        overlay_a = 0.0
+    else:
+        _ov_raw = product.get("overlay_alpha")
+        if _ov_raw is None:
+            _ov_base = float(cfg.get("overlay_alpha", 130))
+        else:
+            try:
+                _ov_base = float(str(_ov_raw).strip())
+            except (ValueError, TypeError):
+                _ov_base = float(cfg.get("overlay_alpha", 130))
+        _ov_base = max(0.0, min(255.0, _ov_base))
+        # Misma escala que generate_video.make_overlay: alpha del velado = overlay_alpha/255 (sin factor extra).
+        overlay_a = _ov_base / 255.0
 
     # Títulos: extraer familias, tamaños y colores
     titles_cfg = cfg.get("titles") or [cfg.get("title", {})]
@@ -462,8 +480,11 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
     safe_top_px    = (TV_SPLIT - split_safe) * SCALE
     safe_height_px = split_safe * 2 * SCALE
 
-    logo_html        = compute_logo_preview(cfg, output_path, "logo")
-    logo_footer_html = compute_logo_preview(cfg, output_path, "logo_footer")
+    # show_logo / show_logo_footer: permiten ocultar los logos por slide
+    _show_logo        = str(product.get("show_logo",        "true")).strip().lower() not in ("false", "0", "no")
+    _show_logo_footer = str(product.get("show_logo_footer", "true")).strip().lower() not in ("false", "0", "no")
+    logo_html        = compute_logo_preview(cfg, output_path, "logo")        if _show_logo        else ""
+    logo_footer_html = compute_logo_preview(cfg, output_path, "logo_footer") if _show_logo_footer else ""
 
     # ── Alineación de texto según template ───────────────────────────────────
     if is_split:
@@ -623,10 +644,13 @@ def build_slide(product: dict, cfg: dict, index: int, total: int, output_path: s
 
 HTML_TEMPLATE = """\
 <!DOCTYPE html>
+<!-- Preview generado: {generated_at} — si no ves cambios, recarga forzada (Cmd+Shift+R) -->
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
   <title>Preview — Escaparate Dual 4K</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
@@ -1028,21 +1052,24 @@ def generate_preview(products: list, cfg: dict, output_path: str) -> None:
     # Tamaño ampliado (para toggle de fullscreen)
     preview_h_large = round(800 / CANVAS_W * CANVAS_H)
 
+    generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     html = HTML_TEMPLATE.format(
-        preview_w      = PREVIEW_W,
-        preview_h      = PREVIEW_H,
-        preview_h_large= preview_h_large,
-        n_slides       = len(products),
-        total_dur      = total_dur,
-        fps            = cfg["fps"],
-        scale_pct      = round(SCALE * 100, 1),
-        slides_html    = slides_html,
-        font_faces     = font_faces,
+        generated_at     = generated_at,
+        preview_w        = PREVIEW_W,
+        preview_h        = PREVIEW_H,
+        preview_h_large  = preview_h_large,
+        n_slides         = len(products),
+        total_dur        = total_dur,
+        fps              = cfg["fps"],
+        scale_pct        = round(SCALE * 100, 1),
+        slides_html      = slides_html,
+        font_faces       = font_faces,
     )
 
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    Path(output_path).write_text(html, encoding="utf-8")
-    print(f"  ✅  Preview generado: {Path(output_path).resolve()}")
+    out = Path(output_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(html, encoding="utf-8")
+    print(f"  ✅  Preview generado: {out.resolve()}")
 
 
 # ─── CLI ──────────────────────────────────────────────────────────────────────
@@ -1056,8 +1083,12 @@ def main() -> None:
     parser.add_argument("-o", "--output", default="output/index.html")
     args = parser.parse_args()
 
-    cfg  = load_json(args.config)
-    data = load_json(args.data)
+    data_path    = resolve_path(args.data)
+    config_path  = resolve_path(args.config)
+    output_path  = resolve_path(args.output)
+
+    cfg  = load_json(str(config_path))
+    data = load_json(str(data_path))
     products = data if isinstance(data, list) else data.get("productos", [])
 
     if not products:
@@ -1065,10 +1096,10 @@ def main() -> None:
         sys.exit(1)
 
     print(f"  Generando preview de {len(products)} slides...")
-    generate_preview(products, cfg, args.output)
+    print(f"  Datos: {data_path}")
+    generate_preview(products, cfg, str(output_path))
 
-    import subprocess
-    subprocess.run(["open", args.output])
+    subprocess.run(["open", str(output_path)], check=False)
 
 
 if __name__ == "__main__":

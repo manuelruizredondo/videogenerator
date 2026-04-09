@@ -21,7 +21,7 @@ fi
 
 source .venv/bin/activate
 
-python sync_from_sheets.py --push
+.venv/bin/python3 sync_from_sheets.py --push
 STATUS=$?
 
 echo ""

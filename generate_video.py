@@ -702,6 +702,49 @@ def make_overlay(alpha_value: int) -> Image.Image:
     return Image.new("RGBA", (CANVAS_W, CANVAS_H), (0, 0, 0, alpha_value))
 
 
+def _resolve_overlay_alpha(product: dict, cfg: dict) -> int:
+    """Velado por slide: `overlay_alpha` en el producto; si falta, config.json.
+    Si el producto tiene `show_overlay: false`, devuelve 0 (sin velado)."""
+    # Control on/off del velado
+    if str(product.get("show_overlay", "true")).strip().lower() in ("false", "0", "no"):
+        return 0
+    raw = product.get("overlay_alpha")
+    fallback = cfg.get("overlay_alpha", 130)
+    if raw is None:
+        try:
+            return max(0, min(255, int(fallback)))
+        except (TypeError, ValueError):
+            return 130
+    try:
+        v = int(float(str(raw).strip()))
+    except (ValueError, TypeError):
+        try:
+            return max(0, min(255, int(fallback)))
+        except (TypeError, ValueError):
+            return 130
+    return max(0, min(255, v))
+
+
+def _resolve_overlay_appear_at(product: dict, cfg: dict) -> float:
+    raw = product.get("overlay_appear_at")
+    if raw is None:
+        return float(cfg.get("overlay_appear_at", 0.6))
+    try:
+        return float(str(raw).strip())
+    except (ValueError, TypeError):
+        return float(cfg.get("overlay_appear_at", 0.6))
+
+
+def _resolve_overlay_fade_duration(product: dict, cfg: dict) -> float:
+    raw = product.get("overlay_fade_duration")
+    if raw is None:
+        return float(cfg.get("overlay_fade_duration", 1.2))
+    try:
+        return float(str(raw).strip())
+    except (ValueError, TypeError):
+        return float(cfg.get("overlay_fade_duration", 1.2))
+
+
 def make_vignette(strength: int = 80) -> np.ndarray:
     """
     Genera una viñeta radial que oscurece los bordes del canvas.
@@ -875,6 +918,10 @@ def render_frame(
     logo_footer_pos: Optional[tuple[int, int]] = None,
     t_global:        float                     = 0.0,
     total_video_dur: float                     = 0.0,
+    overlay_appear_at: Optional[float]         = None,
+    overlay_fade_duration: Optional[float]       = None,
+    show_logo:        bool                     = True,
+    show_logo_footer: bool                     = True,
 ) -> bytes:
     """
     Genera un único frame RGB24 en el instante t y lo devuelve como bytes.
@@ -897,8 +944,12 @@ def render_frame(
     canvas   = Image.new("RGBA", (CANVAS_W, CANVAS_H), (intro_r, intro_g, intro_b, 255))
     template = precomp.get("template", "centered")
 
-    ov_appear  = cfg.get("overlay_appear_at",    0.6)
-    ov_fade_in = cfg.get("overlay_fade_duration", 1.2)
+    ov_appear  = float(cfg.get("overlay_appear_at", 0.6))
+    ov_fade_in = float(cfg.get("overlay_fade_duration", 1.2))
+    if overlay_appear_at is not None:
+        ov_appear = float(overlay_appear_at)
+    if overlay_fade_duration is not None:
+        ov_fade_in = float(overlay_fade_duration)
     ov_alpha   = calc_alpha(t, ov_appear, ov_fade_in, fo_start, fade_out)
 
     if template == "split":
@@ -1070,10 +1121,12 @@ def render_frame(
     )
 
     # ── 7. Logos (globales: entran una vez, se mantienen y salen al final) ────
-    for cfg_key, l_img, l_pos in (
-        ("logo",        logo_img,        logo_pos),
-        ("logo_footer", logo_footer_img, logo_footer_pos),
+    for cfg_key, l_img, l_pos, show_flag in (
+        ("logo",        logo_img,        logo_pos,        show_logo),
+        ("logo_footer", logo_footer_img, logo_footer_pos, show_logo_footer),
     ):
+        if not show_flag:
+            continue
         if l_img is None or l_pos is None:
             continue
         l_cfg            = cfg.get(cfg_key, {})
@@ -1127,8 +1180,7 @@ def generate_video(products: list[dict], cfg: dict, output_path: str) -> None:
     print(f"  Duración    : {total_secs:.1f} s  ({total_frames} frames)")
     print(f"  Salida      : {output_path}\n")
 
-    # Pre-construir overlay, viñeta y logo (constantes para todo el vídeo)
-    overlay  = make_overlay(cfg["overlay_alpha"])
+    # Viñeta y logos globales; el overlay del velado se construye por slide (alpha configurable en cada producto)
     vig_arr  = make_vignette(cfg.get("vignette_strength", 70))
     vignette = Image.fromarray(vig_arr, "RGBA")
     logo_img        = load_logo_from_cfg(cfg.get("logo"))
@@ -1199,6 +1251,13 @@ def generate_video(products: list[dict], cfg: dict, output_path: str) -> None:
             )
             is_video  = isinstance(bg_source, VideoBackground)
             precomp   = precompute_slide(product, cfg)
+            overlay   = make_overlay(_resolve_overlay_alpha(product, cfg))
+            ov_app    = _resolve_overlay_appear_at(product, cfg)
+            ov_fd     = _resolve_overlay_fade_duration(product, cfg)
+
+            # Control de visibilidad de logos por slide
+            _show_logo        = str(product.get("show_logo",        "true")).strip().lower() not in ("false", "0", "no")
+            _show_logo_footer = str(product.get("show_logo_footer", "true")).strip().lower() not in ("false", "0", "no")
 
             for fi in range(frames_slide):
                 # Comprobar si FFmpeg murió antes de tiempo
@@ -1213,6 +1272,8 @@ def generate_video(products: list[dict], cfg: dict, output_path: str) -> None:
                     bg_arr, precomp, cfg, t, slide_dur, overlay, vignette,
                     logo_img, logo_pos, logo_footer_img, logo_footer_pos,
                     t_global, total_secs,
+                    ov_app, ov_fd,
+                    _show_logo, _show_logo_footer,
                 )
                 try:
                     proc.stdin.write(frame)

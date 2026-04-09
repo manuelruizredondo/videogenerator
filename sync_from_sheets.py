@@ -38,6 +38,10 @@ PRODUCTS_FIELDS = [
     # Tamaños de fuente opcionales por producto (sobreescriben config.json)
     "font_size_titulo_1", "font_size_titulo_2", "font_size_titulo_3",
     "font_size_descripcion", "font_size_precio", "font_size_precio_antes",
+    # Velado sobre el fondo (opcional por producto)
+    "overlay_alpha", "overlay_appear_at", "overlay_fade_duration",
+    # Visibilidad de logos y velado (opcional por producto)
+    "show_overlay", "show_logo", "show_logo_footer",
 ]
 
 # Mapeo de cabeceras de Google Sheets → nombres internos de campo
@@ -72,6 +76,19 @@ HEADER_MAP = {
     "font_size_descripcion": "font_size_descripcion",
     "font_size_precio": "font_size_precio",
     "font_size_precio_antes": "font_size_precio_antes",
+    "velado (0-255)":             "overlay_alpha",
+    "overlay_alpha":              "overlay_alpha",
+    "seg. aparición velado":      "overlay_appear_at",
+    "overlay_appear_at":          "overlay_appear_at",
+    "dur. fade velado (seg)":     "overlay_fade_duration",
+    "overlay_fade_duration":      "overlay_fade_duration",
+    # Visibilidad de logos y velado
+    "mostrar velado":             "show_overlay",
+    "show_overlay":               "show_overlay",
+    "mostrar logo":               "show_logo",
+    "show_logo":                  "show_logo",
+    "mostrar logo inferior":      "show_logo_footer",
+    "show_logo_footer":           "show_logo_footer",
 }
 
 
@@ -261,6 +278,10 @@ def sync_products(sh) -> list | None:
             continue
         is_ref_row = all(v == k for k, v in product.items())
         if not is_ref_row:
+            # Convertir campos booleanos de texto ("true"/"false") a bool nativo
+            for bool_field in ("show_overlay", "show_logo", "show_logo_footer"):
+                if bool_field in product:
+                    product[bool_field] = str(product[bool_field]).strip().lower() not in ("false", "0", "no")
             products.append(product)
 
     return products
@@ -557,6 +578,12 @@ FIELD_TO_HEADER.update({
     "font_size_descripcion":"Tamaño descripción",
     "font_size_precio":     "Tamaño precio",
     "font_size_precio_antes":"Tamaño precio anterior",
+    "overlay_alpha":        "Velado (0-255)",
+    "overlay_appear_at":    "Seg. aparición velado",
+    "overlay_fade_duration":"Dur. fade velado (seg)",
+    "show_overlay":         "Mostrar velado",
+    "show_logo":            "Mostrar logo",
+    "show_logo_footer":     "Mostrar logo inferior",
 })
 
 

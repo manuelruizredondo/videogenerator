@@ -77,7 +77,18 @@
     "precio": "Somos tu clínica de confianza",
     "imagen": "assets/backgrounds/dentalbaste.mp4"
   },
-
+  {
+    "titulo_1": "",
+    "titulo_2": "",
+    "titulo_3": "",
+    "descripcion": "",
+    "precio": "",
+    "imagen": "assets/backgrounds/invitado.mp4",
+    "duracion": "20",
+    "show_overlay": false,
+    "show_logo": false,
+    "show_logo_footer": false
+  },
   {
     "titulo_1": "PRIMERA VISITA",
     "titulo_2": "Diagnóstico completo",

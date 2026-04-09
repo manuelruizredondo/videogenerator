@@ -19,7 +19,7 @@ fi
 
 source .venv/bin/activate
 
-python generate_video.py
+.venv/bin/python3 generate_video.py
 STATUS=$?
 
 echo ""

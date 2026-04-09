@@ -267,6 +267,18 @@ def apply_icon(icon_png: str, target_file: str) -> bool:
         os.unlink(tmp)
 
 
+# ── Mapeo de iconos existentes ─────────────────────────────────────────────────
+
+ICON_MAP = {
+    "HIGH VIDEO.command":       "assets/icons/HIGH_VIDEO.png",
+    "LOW VIDEO.command":        "assets/icons/LOW_VIDEO.png",
+    "Preview.command":          "assets/icons/Preview.png",
+    "INSTAGRAM.command":        "assets/icons/INSTAGRAM.png",
+    "Bajar de Sheets.command":  "assets/icons/Bajar_de_Sheets.png",
+    "Subir a Sheets.command":   "assets/icons/Subir_a_Sheets.png",
+}
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -274,28 +286,24 @@ def main():
     print("  Asignando iconos a los archivos .command")
     print("═" * 50)
 
-    icons_dir = PROJECT / "assets" / "icons"
-    icons_dir.mkdir(parents=True, exist_ok=True)
+    for command_file, icon_rel in ICON_MAP.items():
+        target    = PROJECT / command_file
+        icon_path = PROJECT / icon_rel
 
-    for cfg in ICONS:
-        target = PROJECT / cfg["file"]
         if not target.exists():
-            print(f"  ⚠  No encontrado: {cfg['file']}")
+            print(f"  ⚠  No encontrado: {command_file}")
+            continue
+        if not icon_path.exists():
+            print(f"  ⚠  Icono no encontrado: {icon_rel}")
             continue
 
-        # Generar PNG
-        icon_path = icons_dir / (Path(cfg["file"]).stem.replace(" ", "_") + ".png")
-        img = make_icon(cfg)
-        img.save(str(icon_path), "PNG")
-
-        # Aplicar
         ok = apply_icon(str(icon_path), str(target))
         status = "✅" if ok else "❌"
-        print(f"  {status}  {cfg['file']}")
+        print(f"  {status}  {command_file}")
 
     print()
-    print("  Abre el Finder para ver los nuevos iconos.")
-    print("  (Si no aparecen, pulsa Cmd+R para refrescar.)")
+    print("  Abre el Finder para ver los iconos.")
+    print("  (Si no aparecen, pulsa Cmd+Shift+R para refrescar.)")
 
 
 if __name__ == "__main__":

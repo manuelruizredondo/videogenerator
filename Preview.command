@@ -9,7 +9,10 @@ echo "════════════════════════�
 echo ""
 
 source .venv/bin/activate
-python preview.py
+.venv/bin/python3 preview.py
+echo ""
+echo "Si no ves cambios: guarda products.json y vuelve a ejecutar este script, luego Cmd+Shift+R en el navegador."
+echo "Archivo generado: $(pwd)/output/index.html"
 
 afplay /System/Library/Sounds/Glass.aiff
 sleep 1

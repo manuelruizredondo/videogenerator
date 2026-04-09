@@ -19,7 +19,7 @@ fi
 
 source .venv/bin/activate
 
-python quick_preview_video.py
+.venv/bin/python3 quick_preview_video.py
 STATUS=$?
 
 echo ""
